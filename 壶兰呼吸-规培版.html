@@ -14850,31 +14850,33 @@ function cFinish(dead){
    游戏 v3-4 · 住院总之夜：Roguelike 夜班（分层地图 + 后台队列回归）
    依据设计文档 06-住院总之夜：L0-L5 分层 / U×T 四象限 / Boss 张力气胸 CDP 链
    / 未选节点以恶化形态回归 / 终点是晨交班不是打赢 Boss
+   v6.6：病例随机生成——性别/年龄/床位/CCU 床号/姓名/节点顺序/预算每夜随机；
+   病种与教学锚点保持确定（临床结构不变，随机只作用于"谁在住院"）
    医学内容依据《内科学》第 10 版通行教学表述，需临床教师复核
    ============================================================ */
 
 var NIGHT_NODES = {
  L0:[{id:"L0a", title:"17:30 交班", meta:"固定节点", time:20,
-   brief:"上一班递来患者清单：5 名在院患者，纸条上写着『15 床血气没查』。你要在心里圈出——今夜最可能出事的 3 个人。",
+   brief:"上一班递来患者清单：5 名在院患者，纸条上写着『{BDb}血气没查』。你要在心里圈出——今夜最可能出事的 3 个人。",
    opts:[
     {t:"先花 5 分钟打电话问护士要生命体征，再排优先级", good:true, fb:"系统不惩罚打电话——在结算里这是正向行为。护士的口头汇报比纸条新鲜。"},
     {t:"按清单顺序快速过一遍，圈出 3 个直接进 L1", fb:"清单顺序是床位顺序不是危险顺序——但至少你圈了。"},
     {t:"直接开始夜班，边走边看", fb:"『最可能出事的 3 个人』没圈——今夜你会被叫得毫无防备。"}]},
   ],
  L1:[
-  {id:"L1a", title:"12 床 · 临时医嘱", meta:"男 68 · 肺炎新入院", time:25,
-   brief:"护士问：12 床新入院肺炎，抗生素开了还没用，血培养送了但护士站问『可以先挂水吗』。",
+  {id:"L1a", title:"{BDa} · 临时医嘱", meta:"{SXa} {AGa} · 肺炎新入院", time:25,
+   brief:"护士问：{BDa}新入院肺炎，抗生素开了还没用，血培养送了但护士站问『可以先挂水吗』。",
    opts:[
     {t:"确认血培养已抽取后再挂抗生素", good:true, fb:"先留标本再用药——顺序反了，培养假阴性，48-72h 无改善时你将两手空空。"},
     {t:"先挂抗生素，培养反正明早也出不来", fb:"标本被抗生素污染——流程违规记录在案。"},
     {t:"让护士自己判断", fb:"推诿不是授权。你剥夺了患者被正确处置的机会，也剥夺了自己的成长。"}]},
-  {id:"L1b", title:"15 床 · 氧流量异常", meta:"女 73 · 慢阻肺急性加重", time:15,
-   brief:"15 床 AECOPD，白班把氧流量上调到了 5L/min，现在 SpO₂ 96%——『看起来挺好的』。",
+  {id:"L1b", title:"{BDb} · 氧流量异常", meta:"女 {AGb} · 慢阻肺急性加重", time:15,
+   brief:"{BDb} AECOPD，白班把氧流量上调到了 5L/min，现在 SpO₂ 96%——『看起来挺好的』。",
    opts:[
     {t:"下调至控制性目标（SpO₂ 88-92%）并预约复查血气", good:true, fb:"COPD 控制性氧疗。96% 的『好看』数字下面，CO₂ 正在悄悄爬升。"},
     {t:"96% 挺好的，不动", fb:"高浓度氧→CO₂ 潴留→CO₂ 麻醉。夜班最深的时候她会叫不醒。"},
     {t:"再上调到 8L/min 让她舒服点", fb:"这是本层最危险的选择——她今夜大概率需要紧急插管。"}]},
-  {id:"L1c", title:"21 床 · 家属询问", meta:"男 78 · 晚期胰腺癌安宁疗护", time:20,
+  {id:"L1c", title:"{BDc} · 家属询问", meta:"男 {AGc} · 晚期胰腺癌安宁疗护", time:20,
    brief:"家属拦住你：『我爸疼得整晚睡不着，你们是不是放弃了？』",
    opts:[
     {t:"先处理疼痛评估，再坐下来和家属谈照护目标", good:true, fb:"沟通紧迫度≠生理紧迫度，但一样不能漏。安宁疗护不是放弃，是不做无谓的。"},
@@ -14882,46 +14884,46 @@ var NIGHT_NODES = {
     {t:"直接加开镇痛药,不评估不沟通", fb:"没评估就给药——NRS 评分缺失，药效无从验证。"}]}
  ],
  L2:[
-  {id:"L2a", title:"抢救室 · 打球后胸痛", meta:"男 24 · 突发胸痛气促", time:40, boss:true,
+  {id:"L2a", title:"抢救室 · 打球后胸痛", meta:"{SXd} {AGd} · 突发胸痛气促", time:40, boss:true,
    brief:"瘦高青年，打球后 40 分钟突发左侧胸痛伴呼吸困难，大汗，血压偏低并进行性下降。桌上放着一张已开好的胸片申请单。",
    opts:[
     {t:"放下申请单，先做即时体格检查", good:true, fb:"患侧呼吸音消失+叩诊过清音+气管移位——张力性气胸是临床诊断。这是全游戏唯一一次『明确要求你不要等检查』。"},
     {t:"推去放射科拍胸片确诊", fb:"转运途中血压继续掉——时间轴推进，处理窗口正在关闭。"},
     {t:"先补液升压稳住再说", fb:"只补液不减压=往漏气的轮胎里打气。病理生理没通。"}]},
-  {id:"L2b", title:"留观区 · 喊不醒", meta:"女 71 · 意识障碍", time:50,
-   brief:"71 岁女性『说不出话喊不醒』，家属 2 小时前发现。手边信息只有一句主诉。",
+  {id:"L2b", title:"留观区 · 喊不醒", meta:"{SXe} {AGe} · 意识障碍", time:50,
+   brief:"{AGe} 岁{GDe}『说不出话喊不醒』，家属 2 小时前发现。手边信息只有一句主诉。",
    opts:[
     {t:"床旁快速可逆病因筛查：血糖、瞳孔、定位体征，同时呼叫上级", good:true, fb:"U 高 T 高象限：保护性处理+针对最致命可逆病因+求助——三件事并行。"},
     {t:"先送 CT 完善检查", fb:"转运=监护降级。低血糖 5 秒钟就能排除，你却花了 40 分钟在路上。"},
     {t:"观察 30 分钟看会不会自己醒", fb:"『观察』成了不作为的同义词——这是本游戏最想暴露的行为。"}]},
-  {id:"L2c", title:"急诊内科 · 黑便两天", meta:"男 58 · 头晕乏力", time:35,
-   brief:"58 岁男性『拉黑便两天，头晕』。坐在候诊椅上，面色苍白。",
+  {id:"L2c", title:"急诊内科 · 黑便两天", meta:"{SXf} {AGf} · 头晕乏力", time:35,
+   brief:"{AGf} 岁{GDf}『拉黑便两天，头晕』。坐在候诊椅上，面色苍白。",
    opts:[
     {t:"立即开放静脉通路+配血+评估血流动力学", good:true, fb:"保护性处理先行：通路、配血、监护。活动性出血判定在先，内镜在后。"},
     {t:"先详细问病史和查体", fb:"黑便两天+头晕——可能已经在失代偿边缘。评估可以边建通路边做。"},
     {t:"留观输液观察", fb:"没配血没评估出血量——大出血不等人。"}]}
  ],
  L3:[
-  {id:"L3a", title:"回归 · 15 床深夜呼叫", meta:"女 73 · 病情恶化", time:30,
+  {id:"L3a", title:"回归 · {BDb}深夜呼叫", meta:"女 {AGb} · 病情恶化", time:30,
    brief:"如果你在 L1 下调了她的氧流量：护士报『精神好转』。如果你没有：她现在叫不醒，血气 PaCO₂ 92mmHg——CO₂ 麻醉。",
    opts:[
     {t:"无创通气+复查血气+呼叫上级", good:true, fb:"白天那个『96% 挺好』的决定，深夜以最坏的方式回来了。"},
     {t:"插管镇静转 ICU", fb:"有效但越过 NIV 一步——你可以在更早的窗口用更小的代价。"},
     {t:"继续观察", fb:"CO₂ 92 还在观察——这不是观察，是放弃。"}]},
-  {id:"L3b", title:"CCU-5 · 血钾报警", meta:"女 29 · DKA 治疗中", time:20,
+  {id:"L3b", title:"{CCUg} · 血钾报警", meta:"女 {AGg} · DKA 治疗中", time:20,
    brief:"检验科电话：CCU-5 血钾 3.1，患者胰岛素泵运行中，上一班补钾已停。",
    opts:[
     {t:"恢复补钾+1h 后复查+核对泵速", good:true, fb:"胰岛素时代的血钾是生命线。发现了就处理，处理了就复查——闭环。"},
     {t:"只恢复补钾不复查", fb:"处理了不验证=半个闭环。1 小时后她可能已经 5.5 或还是 3.0。"},
     {t:"先停胰岛素再说", fb:"因噎废食——酮症反弹的代价更大。正确做法是补钾不停泵。"}]},
-  {id:"L3c", title:"08 床 · 出院前疑云", meta:"女 62 · 明日出院", time:15,
+  {id:"L3c", title:"{BDh} · 出院前疑云", meta:"女 {AGh} · 明日出院", time:15,
    brief:"08 床明天出院。护士说白天开的出院复查胸片『结果还没回报』。",
    opts:[
     {t:"追查结果，异常则推迟出院", good:true, fb:"『结果未回报』≠『结果正常』。明天她在家发热 39 度时，这张片子的缺席会写进你的复盘。"},
     {t:"反正都出院了,让门诊随访看", fb:"出院标准的闭环在你手里断掉了。"},
     {t:"打电话让放射科口头报一下", fb:"系统不惩罚打电话——正向行为。"}]},
   {id:"L3d", title:"回归 · 白班遗留医嘱", meta:"事务 · 15% 内藏恶化", time:10,
-   brief:"一沓白天没签完的医嘱。其中夹着一张：CCU-3 王建军的 hs-cTn 复查——超过时间窗 40 分钟了。",
+   brief:"一沓白天没签完的医嘱。其中夹着一张：{CCUi} {NMi} 的 hs-cTn 复查——超过时间窗 40 分钟了。",
    opts:[
     {t:"立即补开复查+记录延误原因", good:true, fb:"危险分层还能救——虽然窗口已经窄了。记录延误是职业素养，不是认错。"},
     {t:"明日再说", fb:"TROPONIN_DELAYED：早期介入决策推迟至次日。这就是『遗漏会在后面找上门』。"}]}
@@ -14933,6 +14935,61 @@ var NIGHT_NODES = {
     {t:"只讲做了什么，不讲没做什么", fb:"夜班的价值有一半在『没做的事』里——不讲出来，晨班会替你爆发。"}]}
  ]
 };
+
+/* ---------- 病例随机生成：名册 / token 替换 / 节点索引与洗牌 ----------
+   每夜随机：性别·年龄·床位·CCU 床号·CCU 患者姓名·节点顺序·时间预算·精力上限
+   临床设定（病种/性别约束/教学锚点）保持确定，随机只作用于"谁在住院" */
+var NIGHT_ALL = {};
+NIGHT_NODES.L0.concat(NIGHT_NODES.L1, NIGHT_NODES.L2, NIGHT_NODES.L3, NIGHT_NODES.L5).forEach(function(nd){ NIGHT_ALL[nd.id] = nd; });
+var NCAST = {};
+function night2Pick(a){ return a[Math.floor(Math.random() * a.length)]; }
+function night2BuildCast(){
+  var male = ["刘建国","陈志强","郑国栋","黄文斌","周明礼","孙长海","郭建平","朱德海"];
+  var female = ["李秀兰","张桂芳","王淑珍","陈雅琴","林巧英","黄美凤","吴秀琴","何雪梅"];
+  var beds = [];
+  while(beds.length < 4){
+    var b = 3 + Math.floor(Math.random() * 43);
+    if(beds.indexOf(b) < 0) beds.push(b);
+  }
+  function P(sx, lo, hi){ return {sx:sx, gd:sx === "男" ? "男性" : "女性", ag: lo + Math.floor(Math.random() * (hi - lo + 1))}; }
+  NCAST = {
+    a: P(Math.random() < 0.5 ? "男" : "女", 55, 82),   /* L1a 肺炎新入院 */
+    b: P("女", 65, 82),                                 /* L1b AECOPD（文案含"她"，性别固定） */
+    c: P("男", 60, 85),                                 /* L1c 胰腺癌（文案含"我爸"，性别固定） */
+    d: P(Math.random() < 0.5 ? "男" : "女", 18, 32),   /* L2a 自发性气胸（瘦高青年） */
+    e: P(Math.random() < 0.5 ? "男" : "女", 55, 80),   /* L2b 意识障碍 */
+    f: P(Math.random() < 0.5 ? "男" : "女", 45, 70),   /* L2c 消化道出血 */
+    g: P("女", 22, 38),                                 /* L3b DKA */
+    h: P("女", 50, 70),                                 /* L3c 拟出院 */
+    i: P("男", 45, 65)                                  /* L3d CCU ACS 白班遗留 */
+  };
+  NCAST.a.bd = beds[0] + " 床"; NCAST.b.bd = beds[1] + " 床";
+  NCAST.c.bd = beds[2] + " 床"; NCAST.h.bd = beds[3] + " 床";
+  NCAST.g.ccu = "CCU-" + (1 + Math.floor(Math.random() * 6));
+  NCAST.i.ccu = "CCU-" + (1 + Math.floor(Math.random() * 6));
+  if(NCAST.g.ccu === NCAST.i.ccu) NCAST.i.ccu = "CCU-" + (1 + (parseInt(NCAST.g.ccu.charAt(4), 10) % 6));
+  NCAST.i.nm = night2Pick(male);
+  NCAST.b.nm = night2Pick(female);
+}
+night2BuildCast();
+function night2Txt(s){
+  var out = s;
+  Object.keys(NCAST).forEach(function(k){
+    var c = NCAST[k];
+    out = out.replace(new RegExp("\\{SX" + k + "\\}", "g"), c.sx)
+             .replace(new RegExp("\\{GD" + k + "\\}", "g"), c.gd)
+             .replace(new RegExp("\\{AG" + k + "\\}", "g"), String(c.ag))
+             .replace(new RegExp("\\{BD" + k + "\\}", "g"), c.bd || "")
+             .replace(new RegExp("\\{CCU" + k + "\\}", "g"), c.ccu || "")
+             .replace(new RegExp("\\{NM" + k + "\\}", "g"), c.nm || "");
+  });
+  return out;
+}
+function night2ShuffleIds(arr){
+  var a = arr.map(function(x){ return x.id; });
+  for(var i = a.length - 1; i > 0; i--){ var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
+  return a;
+}
 
 var NIGHT_BOSS_STEPS = [
  {q:"P1 识别：患者烦躁大汗、血压偏低并进行性下降。桌上已放好胸片申请单。你先做什么？", opts:["推去放射科拍胸片", "立即查体：患侧呼吸音、叩诊、气管位置、颈静脉", "先补液升压", "打电话问家属病史"], good:1, fb:"CDP-1：先查体不等胸片——呼吸音消失+过清音+气管移位=张力性气胸临床诊断。"},
@@ -14950,7 +15007,7 @@ function night2Home(){
   var st = (P.night && P.night.s) || [];
   openSheet("🌙 住院总之夜", "Roguelike · 一次夜班逐层推进");
   var h = '<div class="gScene">' + gArtNight() + "</div>";
-  h += '<div class="gIntro">🌙 有向分层图：每层只够做一部分事。<b>你没选的节点不会消失——会以恶化形态回来。</b>终点不是打赢 Boss，是完整走到晨交班。</div>';
+  h += '<div class="gIntro">🌙 有向分层图：每层只够做一部分事。<b>你没选的节点不会消失——会以恶化形态回来。</b>终点不是打赢 Boss，是完整走到晨交班。<b>每夜患者名单、床位与节点顺序随机生成。</b></div>';
   var st0 = st[0] || 0;
   h += '<div class="gBanner t-night"><div class="gBico">🌃</div><h3>今夜 · 一次夜班</h3><p>L0 交班 → L1 常规病房 → L2 急诊会诊 → 深夜恶化 → Boss 层 → 晨交班 ｜ ' + (st0 ? "最好成绩 " + gStarStr(st0) : "首次值班") + '</p></div>';
   h += '<div class="gCard2"><div class="gCBd"><div class="gBtns"><button class="gBtn pri" onclick="night2Start()">🌃 开始今晚</button></div></div></div>';
@@ -14967,7 +15024,10 @@ function gArtNight(){
     + "</svg>";
 }
 function night2Start(){
-  night2.budget = 720; night2.energy = 85;
+  night2BuildCast();
+  night2.order = {1: night2ShuffleIds(NIGHT_NODES.L1), 2: night2ShuffleIds(NIGHT_NODES.L2), 3: night2ShuffleIds(NIGHT_NODES.L3)};
+  night2.budget = 690 + Math.floor(Math.random() * 61);
+  night2.energy = 80 + Math.floor(Math.random() * 11);
   night2.res = {monitor:2, arrest:1, callsup:3, nurse:5, us:3, lab:4, img:2, blood:1, spec:2};
   night2.layer = 0; night2.path = []; night2.queue = []; night2.picks = {L1:0, L2:0, L3:0};
   night2.bossStep = 0; night2.bossOk = 0; night2.bossFb = []; night2.score = 0;
@@ -14984,9 +15044,7 @@ function night2Map(){
     + '<span class="gBtn" style="border:none;cursor:default">⏱ ' + night2.budget + " min ｜ ⚡ " + night2.energy + "</span></div>";
   var nodes;
   if(li === 0) nodes = NIGHT_NODES.L0;
-  else if(li === 1) nodes = NIGHT_NODES.L1;
-  else if(li === 2) nodes = NIGHT_NODES.L2;
-  else if(li === 3) nodes = NIGHT_NODES.L3;
+  else if(li === 1 || li === 2 || li === 3) nodes = night2.order[li].map(function(id){ return NIGHT_ALL[id]; });
   else nodes = NIGHT_NODES.L5;
   var need = li === 0 || li === 5 ? 1 : 2;
   var doneIds = night2.path.filter(function(x){ return x.indexOf("L"+li) === 0 || (li === 3 && false); });
@@ -14995,7 +15053,7 @@ function night2Map(){
   nodes.forEach(function(nd, i){
     var played = night2.path.indexOf(nd.id) >= 0;
     h += '<div class="gNightNode' + (played ? " done" : "") + '" ' + (played || doneThis >= need ? "" : 'onclick="night2Node(\'' + nd.id + '\')"') + '>'
-      + '<b>' + gEsc(nd.title) + '</b><span class="gCost2">' + gEsc(nd.meta) + " · 预计 " + nd.time + " min</span><p>" + gEsc(nd.brief.slice(0, 42)) + "…</p></div>";
+      + '<b>' + gEsc(night2Txt(nd.title)) + '</b><span class="gCost2">' + gEsc(night2Txt(nd.meta)) + " · 预计 " + nd.time + " min</span><p>" + gEsc(night2Txt(nd.brief).slice(0, 42)) + "…</p></div>";
   });
   if(doneThis >= need && li < 5){
     h += '<div class="gTalkCtl" style="justify-content:center"><button class="gBtn pri" onclick="night2NextLayer()">⏭ 进入下一层（未选节点转入后台队列）</button></div>';
@@ -15006,8 +15064,7 @@ function night2Map(){
 }
 function night2NodeLayer(id){ return parseInt(id.charAt(1), 10); }
 function night2Node(id){
-  var all = NIGHT_NODES.L0.concat(NIGHT_NODES.L1, NIGHT_NODES.L2, NIGHT_NODES.L3, NIGHT_NODES.L5);
-  var nd = all.find(function(x){ return x.id === id; });
+  var nd = NIGHT_ALL[id];
   if(!nd) return;
   night2.cur = nd;
   night2.budget = Math.max(0, night2.budget - nd.time);
@@ -15015,7 +15072,7 @@ function night2Node(id){
   if(night2.budget <= 0){ night2Finish(); return; }
   var h = '<div class="gDocBar"><button class="gBtn" onclick="night2Map()">← 地图</button>'
     + '<span class="gBtn" style="border:none;cursor:default">⏱ ' + night2.budget + " ｜ ⚡ " + night2.energy + "</span></div>";
-  h += '<div class="gPStage2"><div class="gSpeech"><span class="gWho">' + gEsc(nd.title) + " · " + gEsc(nd.meta) + '</span>' + gEsc(nd.brief) + "</div></div>";
+  h += '<div class="gPStage2"><div class="gSpeech"><span class="gWho">' + gEsc(night2Txt(nd.title)) + " · " + gEsc(night2Txt(nd.meta)) + '</span>' + gEsc(night2Txt(nd.brief)) + "</div></div>";
   h += '<div class="blk"><h4><span class="hIco">🎚️</span>你的决策（U=不确定度 T=时间敏感度，界面不显示——复盘才回放）</h4>';
   nd.opts.forEach(function(o, i){
     h += '<div class="gNightOpt" onclick="night2Opt(' + i + ')"><b>' + "ABCD"[i] + ".</b> " + gEsc(o.t) + "</div>";
@@ -15104,7 +15161,7 @@ function night2Finish(){
   if(!P.night) P.night = {s:[]};
   if(!P.night.s[0] || P.night.s[0] < stars) P.night.s[0] = stars;
   gProgSave(P);
-  var h = '<div class="gDocBar"><button class="gBtn" onclick="night2Home()">↻ 再值一晚（病例随机性待教师复核版）</button></div>';
+  var h = '<div class="gDocBar"><button class="gBtn" onclick="night2Home()">↻ 再值一晚（每夜病例随机生成）</button></div>';
   h += '<div class="gReport"><h4>晨光 · 夜班结束<span class="gStamp ' + (stars === 3 ? "good" : stars >= 1 ? "mid" : "bad") + '">' + gStarStr(stars) + " " + score + " 分</span></h4>";
   h += "<p><b>四张卡</b>（结构化复盘）：决策命中 " + night2.score + " ｜ Boss CDP " + night2.bossOk + "/6 ｜ 剩余时间预算 " + night2.budget + " min ｜ 精力 " + night2.energy + "/85</p></div>";
   h += '<div class="blk"><h4><span class="hIco">📦</span>后台队列回归清单</h4><p>' + (night2.queue.length ? "以下节点你没有走到——它们都在深夜以恶化形态回来过：" + gEsc(night2.queue.join("、")) : "本层全清——但真实的夜班永远有第 9 个节点。") + "</p></div>";
@@ -15133,7 +15190,7 @@ GAME_META.forEach(function(m){
 /* ---------- 列表 v3：8 款全部可玩 ---------- */
 function gRenderList2(){
   var P = gProg();
-  var h = '<div class="gIntro">🎮 <b>8 款医学教育游戏 · 全部可玩</b> · 先是游戏，才是医学。四款新原型（卡牌对战 / 病房经营 / 稳态模拟 / Roguelike 夜班）已随 v6.5 上线。</div>';
+  var h = '<div class="gIntro">🎮 <b>8 款医学教育游戏 · 全部可玩</b> · 先是游戏，才是医学。v6.6：住院总之夜升级为每夜病例随机生成（名单/床位/节点顺序）。</div>';
   GAME_META.forEach(function(m, i){
     var stars = 0;
     if(m.play === "det"){ stars = ((P.det||{}).s||[]).reduce(function(a,b){ return a + (b||0); }, 0); }
