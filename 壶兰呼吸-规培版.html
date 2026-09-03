@@ -13356,6 +13356,761 @@ function talkFinish(){
   var orig = closeSheet;
   closeSheet = function(){ orig(); beatStop(); };
 })();
+
+/* ============================================================
+   游戏 v2 · 游戏化重构：场景 / 立绘 / 互动探索 / 层层递进
+   覆盖 p51 的 gStartGame 与列表渲染；引擎前缀 det2/lab2/beat2/talk2
+   听诊音全部来自 App 已入库真实录音（AU_REAL / 合成兜底），零新增合成音
+   患者立绘为卡通游戏美术，不代表真实临床影像；医学结论待临床教师复核
+   ============================================================ */
+
+/* ---------- 进度存档 ---------- */
+function gProg(){
+  try{ return JSON.parse(localStorage.getItem("hlh_games_v2") || "{}"); }catch(e){ return {}; }
+}
+function gProgSave(p){
+  try{ localStorage.setItem("hlh_games_v2", JSON.stringify(p)); }catch(e){}
+}
+function gStarStr(n){ return n ? "★".repeat(n) + "☆".repeat(3 - n) : "☆☆☆"; }
+
+/* ---------- 列表 v2 ---------- */
+function gRenderList2(){
+  var P = gProg();
+  var h = '<div class="gIntro">🎮 <b>8 款医学教育游戏</b> · 先是游戏，才是医学。4 款可玩原型已内置场景与互动；设计稿游戏可阅读完整设计文档。</div>';
+  GAME_META.forEach(function(m, i){
+    var stars = 0, lockTxt = "";
+    if(m.play === "det"){ stars = ((P.det||{}).s||[]).reduce(function(a,b){ return a + (b||0); }, 0); }
+    else if(m.play === "lab"){ stars = ((P.lab||{}).s||[]).reduce(function(a,b){ return a + (b||0); }, 0); }
+    else if(m.play === "beat"){ var bs = (P.beat||{}).s || {}; Object.keys(bs).forEach(function(k){ stars += bs[k]; }); }
+    else if(m.play === "talk"){ stars = ((P.talk||{}).s||[]).reduce(function(a,b){ return a + (b||0); }, 0); }
+    var maxStars = m.play === "beat" ? 30 : (m.play ? 9 : 0);
+    h += '<div class="gCard2">'
+      + '<div class="gBanner ' + m.cls + '"><div class="gBico">' + m.icon + '</div><h3>' + m.name
+      + ' <span class="gGenre" style="background:rgba(255,255,255,.22);color:#fff">' + m.genre + '</span></h3><p>' + m.tag + '</p>'
+      + (maxStars ? '<p class="gStars">⭐ ' + stars + "/" + maxStars + '</p>' : "")
+      + "</div>"
+      + '<div class="gCBd"><p class="gTag">' + m.tag + '</p><div class="gBtns">'
+      + '<button class="gBtn" onclick="gOpenDoc(' + i + ')">📖 设计文档</button>'
+      + (m.play ? '<button class="gBtn pri" onclick="gStartGame(' + i + ')">▶ 进入游戏</button>'
+                : '<button class="gBtn dis" onclick="toast(\'设计稿阶段：可玩原型制作中\')">⏳ 原型开发中</button>')
+      + "</div></div></div>";
+  });
+  return h;
+}
+function gRefreshList(){
+  var gl = document.getElementById("gamesList");
+  if(gl) gl.innerHTML = gRenderList2();
+}
+GAME_META.forEach(function(m){
+  m.cls = m.play === "det" ? "t-det" : m.play === "lab" ? "t-lab" : m.play === "beat" ? "t-beat" : m.play === "talk" ? "t-talk" : "";
+});
+gRefreshList();
+
+function gStartGame(i){
+  var p = GAME_META[i].play;
+  if(p === "det") det2Home();
+  else if(p === "lab") lab2Home();
+  else if(p === "beat") beat2Home();
+  else if(p === "talk") talk2Home();
+  else toast("原型开发中");
+}
+
+/* ============================================================
+   美术：卡通 SVG 素材（游戏立绘，非真实临床影像）
+   ============================================================ */
+function gArtOffice(){
+  return '<svg viewBox="0 0 340 130" xmlns="http://www.w3.org/2000/svg">'
+    + '<rect width="340" height="130" fill="#312e5f"/>'
+    + '<rect y="96" width="340" height="34" fill="#3b3670"/>'
+    + '<circle cx="300" cy="22" r="12" fill="#fcd34d" opacity=".9"/>'
+    + '<rect x="16" y="14" width="120" height="76" rx="6" fill="#4c4380" stroke="#8b7fd4" stroke-width="2"/>'
+    + '<circle cx="34" cy="30" r="4" fill="#f87171"/><rect x="44" y="26" width="60" height="7" rx="3" fill="#c4b5fd"/>'
+    + '<circle cx="34" cy="48" r="4" fill="#34d399"/><rect x="44" y="44" width="74" height="7" rx="3" fill="#c4b5fd"/>'
+    + '<circle cx="34" cy="66" r="4" fill="#fbbf24"/><rect x="44" y="62" width="52" height="7" rx="3" fill="#c4b5fd"/>'
+    + '<rect x="152" y="52" width="92" height="46" rx="5" fill="#5b4d2f" stroke="#8a6f3c" stroke-width="2"/>'
+    + '<ellipse cx="198" cy="50" rx="26" ry="8" fill="#fcd34d"/><rect x="195" y="50" width="6" height="14" fill="#b45309"/>'
+    + '<ellipse cx="198" cy="66" rx="18" ry="5" fill="#fef3c7" opacity=".55"/>'
+    + '<circle cx="262" cy="72" r="11" fill="none" stroke="#67e8f9" stroke-width="3.5"/>'
+    + '<line x1="270" y1="80" x2="280" y2="92" stroke="#67e8f9" stroke-width="4" stroke-linecap="round"/>'
+    + '<rect x="286" y="40" width="34" height="58" rx="4" fill="#4c4380" stroke="#8b7fd4" stroke-width="2"/>'
+    + '<text x="303" y="74" font-size="16" text-anchor="middle">📁</text>'
+    + '<text x="170" y="24" font-size="11" fill="#c4b5fd" font-family="sans-serif" font-weight="bold">🔎 内科侦探所 · 案件板</text>'
+    + "</svg>";
+}
+function gArtPatient(k, expr){
+  /* k: 1 老烟民 2 建筑工人 3 瘦高青年；expr: 0 难受 1 普通 */
+  var skin = "#fcd9b8", skin2 = "#f0b98d", hair = "#9ca3af", top = "#64748b";
+  if(k === 2){ hair = "#1f2937"; top = "#f59e0b"; }
+  if(k === 3){ hair = "#111827"; top = "#10b981"; }
+  var mouth = expr ? '<path d="M145 96 Q152 100 159 96" stroke="#b45309" stroke-width="2.5" fill="none" stroke-linecap="round"/>'
+                   : '<path d="M144 98 Q152 92 160 98" stroke="#b45309" stroke-width="2.5" fill="none" stroke-linecap="round"/>';
+  return '<svg viewBox="0 0 300 240" xmlns="http://www.w3.org/2000/svg">'
+    + '<rect width="300" height="240" rx="14" fill="#eef2f7"/>'
+    + '<rect x="0" y="188" width="300" height="52" fill="#dbe4ee"/>'
+    + '<rect x="52" y="150" width="196" height="90" rx="26" fill="' + top + '"/>'
+    + '<path d="M150 118 L150 168" stroke="' + top + '" stroke-width="0"/>'
+    + '<rect x="126" y="128" width="48" height="34" rx="12" fill="' + skin + '"/>'
+    + '<circle cx="150" cy="82" r="44" fill="' + skin + '"/>'
+    + '<path d="M106 74 Q112 34 150 34 Q188 34 194 74 Q176 60 150 60 Q124 60 106 74Z" fill="' + hair + '"/>'
+    + (k === 2 ? '<path d="M104 58 Q150 20 196 58 L196 46 Q150 14 104 46Z" fill="#fbbf24"/>'
+               : (k === 1 ? '<path d="M104 62 L104 46 Q150 30 196 46 L196 62" fill="none" stroke="' + hair + '" stroke-width="7" stroke-linecap="round"/>' : ""))
+    + '<circle cx="133" cy="84" r="4" fill="#374151"/><circle cx="167" cy="84" r="4" fill="#374151"/>'
+    + '<path d="M125 72 q8 -5 16 -1" stroke="#9ca3af" stroke-width="2" fill="none"/>'
+    + '<path d="M159 71 q8 -4 16 1" stroke="#9ca3af" stroke-width="2" fill="none"/>'
+    + mouth
+    + (k === 1 ? '<path d="M136 108 Q150 114 164 108 L164 116 Q150 120 136 116Z" fill="#d1d5db" opacity=".9"/>' : "")
+    + '<path d="M60 168 q6 -30 40 -34" stroke="' + top + '" stroke-width="24" fill="none" stroke-linecap="round"/>'
+    + '<path d="M240 168 q-6 -30 -40 -34" stroke="' + top + '" stroke-width="24" fill="none" stroke-linecap="round"/>'
+    + '<circle cx="150" cy="196" r="5" fill="#ef4444" opacity=".85"/>'
+    + '<text x="150" y="232" font-size="10" text-anchor="middle" fill="#94a3b8">▲ 胸部听诊点：点击绿色圆点放置听诊器</text>'
+    + "</svg>";
+}
+function gArtBody(spots, doneOps){
+  var body = '<svg viewBox="0 0 200 300" xmlns="http://www.w3.org/2000/svg">'
+    + '<circle cx="100" cy="34" r="24" fill="#fcd9b8"/>'
+    + '<path d="M76 30 Q80 8 100 8 Q120 8 124 30 Q112 20 100 20 Q88 20 76 30Z" fill="#6b4423"/>'
+    + '<rect x="92" y="55" width="16" height="12" fill="#f0b98d"/>'
+    + '<path d="M64 78 Q100 66 136 78 L142 150 Q100 162 58 150 Z" fill="#93c5fd"/>'
+    + '<path d="M64 78 Q100 66 136 78 L138 106 Q100 96 62 106 Z" fill="#bfdbfe" opacity=".75"/>'
+    + '<rect x="62" y="152" width="76" height="52" rx="12" fill="#93c5fd"/>'
+    + '<rect x="40" y="82" width="18" height="76" rx="9" fill="#93c5fd"/>'
+    + '<rect x="142" y="82" width="18" height="76" rx="9" fill="#93c5fd"/>'
+    + '<rect x="70" y="204" width="26" height="86" rx="12" fill="#60a5fa"/>'
+    + '<rect x="104" y="204" width="26" height="86" rx="12" fill="#60a5fa"/>'
+    + '<line x1="58" y1="150" x2="142" y2="150" stroke="#60a5fa" stroke-width="2" stroke-dasharray="4 3"/>'
+    + "</svg>";
+  var h = '<div class="gBodyWrap">' + body;
+  spots.forEach(function(s, i){
+    var done = doneOps.indexOf(s.op) >= 0;
+    h += '<button class="gSpot' + (done ? " done" : "") + '" style="left:' + s.x + "%;top:" + s.y + '%" onclick="det2Spot(' + i + ')">' + (done ? "✓" : "🎧") + "</button>"
+       + '<span class="gSpotName" style="left:' + s.x + "%;top:calc(" + s.y + '% + 14px)">' + s.label + "</span>";
+  });
+  h += "</div>";
+  return h;
+}
+function gArtRoom(){
+  return '<svg viewBox="0 0 340 150" xmlns="http://www.w3.org/2000/svg">'
+    + '<rect width="340" height="150" fill="#0f2e3d"/>'
+    + '<rect y="118" width="340" height="32" fill="#123a4d"/>'
+    + '<rect x="14" y="16" width="92" height="64" rx="6" fill="#173f52" stroke="#2c6e8a" stroke-width="2"/>'
+    + '<path d="M140 22 h76 l-6 44 h-64 Z" fill="#0b2130" stroke="#2c6e8a" stroke-width="2"/>'
+    + '<path d="M148 30 h60 M148 40 h54 M148 50 h48" stroke="#38bdf8" stroke-width="2" opacity=".7"/>'
+    + '<rect x="236" y="30" width="86" height="88" rx="8" fill="#1d4d63" stroke="#2c6e8a" stroke-width="2"/>'
+    + '<rect x="246" y="42" width="66" height="40" rx="4" fill="#0b2130"/>'
+    + '<path d="M250 74 l12 -12 10 8 14 -18 12 10 10 -6" stroke="#4ade80" stroke-width="2.5" fill="none"/>'
+    + '<circle cx="256" cy="100" r="4" fill="#f87171"/><circle cx="270" cy="100" r="4" fill="#fbbf24"/><circle cx="284" cy="100" r="4" fill="#4ade80"/>'
+    + '<rect x="120" y="96" width="92" height="24" rx="4" fill="#123a4d" stroke="#2c6e8a" stroke-width="2"/>'
+    + '<text x="60" y="130" font-size="9" fill="#67e8f9" font-family="sans-serif">🔍 点击房间里的物件收集线索</text>'
+    + "</svg>";
+}
+function gArtFace(k){
+  /* 问诊患者卡通头像：k=1 陈桂芳 2 李国栋 3 林悦 */
+  var skin = "#fcd9b8", hair = "", extra = "";
+  if(k === 1){ hair = '<path d="M10 26 Q14 4 30 4 Q46 4 50 26 L46 30 Q40 16 30 16 Q20 16 14 30Z" fill="#4b5563"/><path d="M8 26 q-4 18 2 30 l8 -2 q-6 -14 -2 -28Z" fill="#4b5563"/><path d="M52 26 q4 18 -2 30 l-8 -2 q6 -14 2 -28Z" fill="#4b5563"/>'; }
+  if(k === 2){ hair = '<path d="M10 24 Q12 6 30 6 Q48 6 50 24 L46 24 Q42 12 30 12 Q18 12 14 24Z" fill="#111827"/>'; extra = '<rect x="18" y="30" width="24" height="8" rx="2" fill="none" stroke="#334155" stroke-width="2"/>'; }
+  if(k === 3){ hair = '<path d="M8 30 Q10 4 30 4 Q50 4 52 30 L52 40 L44 36 Q40 16 30 16 Q20 16 16 36 L8 40Z" fill="#7c2d12"/>'; }
+  return '<svg viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg">'
+    + '<rect width="60" height="60" fill="#e0f2f1"/>'
+    + '<circle cx="30" cy="32" r="20" fill="' + skin + '"/>' + hair + extra
+    + '<circle cx="23" cy="32" r="2.2" fill="#374151"/><circle cx="37" cy="32" r="2.2" fill="#374151"/>'
+    + '<path d="M24 41 Q30 45 36 41" stroke="#b45309" stroke-width="2" fill="none" stroke-linecap="round"/>'
+    + "</svg>";
+}
+function gRoomHotspotIcon(x, y, icon, fn){
+  return '<button class="gRoomSpot" style="left:' + x + "%;top:" + y + '%" onclick="' + fn + '">' + icon + "</button>";
+}
+
+/* ============================================================
+   引擎 v2-1 · 内科侦探所：事务所 → 案卷 → 现场（人体互动）→ 结案
+   ============================================================ */
+var DET2_AUSC_LUNG = [["vesicular","正常肺泡呼吸音","柔和吹风样，吸气长于呼气"],["crackle","湿啰音","吸气相爆裂音，水泡声"],["crackle_mid","中水泡音","吸气中期较响的湿啰音"],["rhonchi","干啰音（低调）","呼气相为主的鼾音"],["wheeze","哮鸣音","高调乐音，呼气相延长"],["stridor","喉鸣/喘鸣","吸气相高调尖鸣"],["pleural","胸膜摩擦音","粗糙搔抓样，与呼吸同步"]];
+var DET2_AUSC_HEART = [["heart_normal","正常心音 S1S2","lub-dub 规则双音"],["s3","S3 奔马律","舒张早期额外心音"],["s4","S4 奔马律","舒张晚期额外心音"],["af","心房颤动","心律绝对不齐，S1 强弱不等"],["ms","二尖瓣狭窄","心尖区舒张期隆隆样杂音"],["mr","二尖瓣关闭不全","心尖区收缩期吹风样杂音"],["as","主动脉瓣狭窄","胸骨右缘收缩期喷射样杂音"],["ar","主动脉瓣关闭不全","舒张期叹气样杂音"],["pericardial","心包摩擦音","搔抓样，与心动周期相关"]];
+
+var DET2_SPOTS = {
+ d1:[
+  {x:36,y:34,label:"左肺上野",op:"a4",au:"vesicular",find:"双肺上野呼吸音普遍减低，呼气相延长，未闻及湿啰音"},
+  {x:64,y:34,label:"右肺上野",op:"a4",au:"vesicular",find:"右肺上野呼吸音减低，与左侧对称"},
+  {x:36,y:47,label:"左肺下野",op:"a4",au:"rhonchi",find:"双肺底可闻散在干啰音（低音调，呼气相为主）"},
+  {x:64,y:47,label:"右肺下野",op:"a4",au:"rhonchi",find:"右肺下野同类干啰音，散在分布"},
+  {x:50,y:52,label:"心尖区",op:"a5",au:"heart_normal",find:"心律齐，未闻及奔马律与病理性杂音"},
+  {x:42,y:41,label:"心底部",op:"a5",au:"heart_normal",find:"心底部的 S2 正常分裂，P2 无亢进"}
+ ],
+ d2:[
+  {x:36,y:33,label:"右上肺",op:"b4",au:"crackle",find:"右上肺闻及吸气相湿啰音，局部固定不消散"},
+  {x:64,y:33,label:"左上肺",op:"b4",au:"vesicular",find:"左上肺呼吸音清，对比右上明显不同"},
+  {x:36,y:47,label:"右肺下野",op:"b4",au:"vesicular",find:"右肺下野呼吸音尚清，啰音局限于上肺"},
+  {x:50,y:24,label:"颈部淋巴结",op:"b5",au:null,find:"锁骨上可触及 1 枚质韧淋巴结，活动度可"},
+  {x:50,y:60,label:"腹部与杵状指",op:"b5",au:null,find:"未见杵状指，腹软肝脾不大"}
+ ],
+ d3:[
+  {x:66,y:38,label:"右侧胸廓",op:"c5",au:"vesicular",find:"游戏情境：右侧呼吸音几乎消失（录音为标准素材作对比，实际应显著减低——教学注记）"},
+  {x:34,y:38,label:"左侧胸廓",op:"c5",au:"vesicular",find:"左侧呼吸音清，与右侧形成鲜明对比"},
+  {x:50,y:24,label:"气管位置",op:"c5",au:null,find:"气管向左侧偏移，右胸饱满、叩诊鼓音"},
+  {x:50,y:52,label:"心前区",op:"c6",au:"heart_normal",find:"游戏情境：心音遥远（录音为标准心音素材——教学注记）"},
+  {x:50,y:44,label:"颈静脉与末梢",op:"c6",au:null,find:"颈静脉怒张，末梢湿冷，毛细血管再充盈延长"}
+ ]
+};
+
+var det2 = {ci:0, tab:"ask", P:{}};
+
+function det2Home(){
+  var P = det2.P = gProg();
+  var solved = (P.det && P.det.s) || [];
+  openSheet("🔎 内科侦探所", "贝克街 221B · 呼吸科分所");
+  var h = '<div class="gScene">' + gArtOffice() + "</div>";
+  h += '<div class="gIntro">🕵️ 你是新人侦探医师。每接一卷案件，你只有<b>主诉和生命体征</b>——问诊、查体（点击人体放听诊器）、开检查都要花时间。把证据钉上案件板，揪出真凶诊断。⚠️ 出现红色警报时优先处理危险信号。</div>';
+  DET_CASES.forEach(function(c, i){
+    var st = solved[i] || 0;
+    var locked = i > 0 && !solved[i-1];
+    h += '<div class="gBanner t-det"><div class="gBico">' + (st ? "🏅" : "📁") + '</div><h3>案件 ' + (i+1) + "：" + c.title + '</h3><p>难度 ' + c.diff + " ｜ 预算 10 点时间 ｜ " + (st ? "已结案 " + gStarStr(st) : "待侦破") + "</p></div>";
+    if(locked){
+      h += '<div class="gCard2"><div class="gLockBar">🔒 先结案上一卷，委托人才肯把这份案卷交给你</div></div>';
+    } else {
+      h += '<div class="gCard2"><div class="gCBd"><div class="gBtns"><button class="gBtn pri" onclick="det2Brief(' + i + ')">' + (st ? "↻ 重新侦查" : "🔍 接案") + "</button></div></div></div>";
+    }
+  });
+  $("#shBody").innerHTML = h;
+}
+function det2Brief(i){
+  var c = DET_CASES[i]; det2.ci = i;
+  openSheet("🔎 案件卷宗 · " + c.title, "第 " + (i+1) + "/" + DET_CASES.length + " 卷 · 难度 " + c.diff);
+  var h = '<div class="gPStage"><div class="gArt">' + gArtPatient(i + 1, 0) + "</div>"
+    + '<div class="gSpeech"><span class="gWho">委托人自述（主诉与基本资料）</span>' + gEsc(c.brief) + "</div></div>";
+  h += '<div class="blk"><h4><span class="hIco">📟</span>入案时生命体征</h4><p class="gVital">' + gEsc(c.vitals) + "</p></div>";
+  h += '<div class="blk k"><h4><span class="hIco">🕵️</span>所长交代</h4><p>只有 10 点时间。问诊、查体、检查各有开销——查体时点患者身上的听诊点，能听到<b>真实录音</b>。听到什么、问到什么，都会变成钉在案件板上的证据。危险信号一旦出现，优先处理。</p></div>';
+  h += '<div class="gTalkCtl" style="justify-content:center"><button class="gBtn pri" onclick="det2Play()">🚪 进入现场，开始侦查</button></div>';
+  $("#shBody").innerHTML = h;
+}
+function det2Play(){
+  det2.tab = "ask";
+  det2.budget = 10; det2.done = {}; det2.cands = []; det2.dangerSeen = false;
+  det2.lastSay = null; det2.lastWho = null;
+  det2Render();
+}
+function det2Render(){
+  var c = DET_CASES[det2.ci];
+  var budget = det2.budget != null ? det2.budget : 10;
+  var h = '<div class="gDocBar"><button class="gBtn" onclick="det2Home()">← 事务所</button>'
+    + '<button class="gBtn" onclick="det2Brief(' + det2.ci + ')">↻ 重开</button>'
+    + '<span class="gBtn" style="border:none;cursor:default">⏱ 剩余 <b>' + budget + "</b> 点</span></div>";
+  /* 患者舞台 */
+  var lastEv = det2.lastSay || "（患者等待你的问话。点击下方行动开始侦查。）";
+  h += '<div class="gPStage"><div class="gArt">' + gArtPatient(det2.ci + 1, det2.done && Object.keys(det2.done).length > 2 ? 1 : 0) + "</div>"
+    + '<div class="gSpeech"><span class="gWho">' + (det2.lastWho || "患者") + "</span>" + gEsc(lastEv) + "</div></div>";
+  /* 行动 Tab */
+  h += '<div class="gActs">'
+    + '<button class="gActTab' + (det2.tab === "ask" ? " on" : "") + '" onclick="det2Tab(\'ask\')">💬 问诊</button>'
+    + '<button class="gActTab' + (det2.tab === "exam" ? " on" : "") + '" onclick="det2Tab(\'exam\')">🩺 查体</button>'
+    + '<button class="gActTab' + (det2.tab === "test" ? " on" : "") + '" onclick="det2Tab(\'test\')">🔬 检查</button>'
+    + '<button class="gActTab' + (det2.tab === "board" ? " on" : "") + '" onclick="det2Tab(\'board\')">📋 案件板</button>'
+    + "</div>";
+  h += '<div id="det2Panel">' + det2Panel() + "</div>";
+  openSheet("🔎 现场 · " + c.title, "第 " + (det2.ci+1) + "/" + DET_CASES.length + " 卷 · 教学虚构病例");
+  $("#shBody").innerHTML = h;
+}
+function det2Panel(){
+  var c = DET_CASES[det2.ci];
+  var groups = {ask:[], exam:[], test:[]};
+  c.opts.forEach(function(o){
+    var k = o.type === "问诊" ? "ask" : o.type === "体格检查" ? "exam" : "test";
+    groups[k].push(o);
+  });
+  var doneOps = Object.keys(det2.done || {});
+  if(det2.tab === "ask"){
+    var h = '<div class="gIntro">每句问话都花时间。问出来的线索会自动钉上案件板。</div>';
+    groups.ask.forEach(function(o){
+      var done = det2.done && det2.done[o.id];
+      h += '<div class="gOp' + (done ? " done" : "") + '" ' + (done ? "" : 'onclick="det2Do(\'' + o.id + '\')"') + ">"
+        + "<b>💬 " + gEsc(o.name) + "</b>" + (done ? '<span class="gCost">已问</span>' : '<span class="gCost">−' + o.cost + " 点</span>") + "</div>";
+    });
+    return h;
+  }
+  if(det2.tab === "exam"){
+    var spots = DET2_SPOTS[c.id] || [];
+    var h = '<div class="gIntro">点击患者身上的 <b>🎧 听诊点</b>：选位置、听真实录音、记录发现。其余查体项在下方列表（点击人体上的热点可直接触发对应查体）。</div>';
+    h += gArtBody(spots, doneOps);
+    var spotOps = {}; spots.forEach(function(s){ spotOps[s.op] = true; });
+    groups.exam.forEach(function(o){
+      if(spotOps[o.id] && doneOps.indexOf(o.id) >= 0) return;
+      var done = det2.done && det2.done[o.id];
+      h += '<div class="gOp' + (done ? " done" : "") + '" ' + (done ? "" : 'onclick="det2Do(\'' + o.id + '\')"') + ">"
+        + "<b>🩺 " + gEsc(o.name) + "</b>" + (done ? '<span class="gCost">已查</span>' : '<span class="gCost">−' + o.cost + " 点</span>") + "</div>";
+    });
+    return h;
+  }
+  if(det2.tab === "test"){
+    var h = '<div class="gIntro">检查最贵也最有分量。先想清楚再开单——资源使用计入评分。</div>';
+    groups.test.forEach(function(o){
+      var done = det2.done && det2.done[o.id];
+      h += '<div class="gOp' + (done ? " done" : "") + '" ' + (done ? "" : 'onclick="det2Do(\'' + o.id + '\')"') + ">"
+        + "<b>🔬 " + gEsc(o.name) + "</b>" + (done ? '<span class="gCost">已约</span>' : '<span class="gCost">−' + o.cost + " 点</span>") + "</div>";
+    });
+    return h;
+  }
+  /* 案件板 */
+  var cands = det2.cands || [];
+  var evCount = 0;
+  c.opts.forEach(function(o){ if(det2.done && det2.done[o.id]) evCount += o.ev.length; });
+  var h = '<div class="gBoard"><b style="font-size:13px;color:#92400e">🧩 嫌疑诊断（点卡片按顺序排位，最多 3 个）</b><div class="gSusRow" style="margin-top:9px">';
+  c.cands.forEach(function(d, di){
+    var rank = cands.indexOf(di);
+    h += '<div class="gSus' + (rank >= 0 ? " on" : "") + '" onclick="det2Sus(' + di + ')">'
+      + (rank >= 0 ? '<span class="gRank">' + (rank+1) + "</span>" : "")
+      + '<span class="sIco">' + ["🫁","💨","💧","🩸"][di % 4] + "</span>" + gEsc(d) + "</div>";
+  });
+  h += "</div>";
+  h += '<p style="font-size:12px;color:#78716c;margin:6px 0">钉上的证据 <b>' + evCount + "</b> 条"
+     + (det2.dangerSeen ? " · 🚨 危险信号已评估" : " · 🚨 危险信号未评估")
+     + '</p><div class="gTalkCtl"><button class="gBtn pri" onclick="det2Submit()">🏁 提交结案报告</button></div></div>';
+  /* 证据墙 */
+  if(evCount){
+    h += '<div class="gBoard" style="margin-top:11px"><b style="font-size:13px;color:#92400e">📌 证据墙</b>';
+    c.opts.forEach(function(o){
+      if(!det2.done[o.id]) return;
+      o.ev.forEach(function(e){
+        var cls = e.r === "支持" ? "sup" : e.r === "反对" ? "opp" : "unk";
+        h += '<div class="gPin"><span class="gBadge ' + cls + '">' + e.r + '</span><b>' + gEsc(e.d) + "</b><p>" + gEsc(e.t) + "</p></div>";
+      });
+    });
+    h += "</div>";
+  }
+  return h;
+}
+function det2Tab(t){ det2.tab = t; det2PanelRefresh(); }
+function det2PanelRefresh(){ var p = document.getElementById("det2Panel"); if(p) p.innerHTML = det2Panel(); }
+function det2Do(oid){
+  var c = DET_CASES[det2.ci];
+  var o = c.opts.find(function(x){ return x.id === oid; });
+  if(!o || (det2.done && det2.done[o.id])) return;
+  det2.done = det2.done || {};
+  if((det2.budget == null ? 10 : det2.budget) < o.cost){ toast("⏱ 时间不够了，先上案件板提交结案"); return; }
+  det2.budget = (det2.budget == null ? 10 : det2.budget) - o.cost;
+  det2.done[o.id] = true;
+  det2.lastSay = o.ev[0] ? o.ev[0].t : "（完成：" + o.name + "）";
+  det2.lastWho = o.type === "问诊" ? "患者回答" : o.type === "体格检查" ? "查体发现" : "检查回报";
+  if(o.ev[0] && c.keyEv.indexOf(o.ev[0].t) >= 0) toast("⭐ 关键证据入手！");
+  det2Render();
+}
+function det2Sus(di){
+  var c = DET_CASES[det2.ci];
+  det2.cands = det2.cands || [];
+  var at = det2.cands.indexOf(di);
+  if(at >= 0) det2.cands.splice(at, 1);
+  else { if(det2.cands.length >= 3){ toast("案件板最多钉 3 个嫌疑人，先摘掉一个"); return; } det2.cands.push(di); }
+  det2PanelRefresh();
+}
+function det2Spot(i){
+  var c = DET_CASES[det2.ci];
+  var s = DET2_SPOTS[c.id][i];
+  det2Ausc(s);
+}
+var det2AuscCtx = null;
+function det2Ausc(s){
+  det2AuscCtx = s;
+  var pool = s.au && DET2_AUSC_HEART.some(function(x){ return x[0] === s.au; }) ? DET2_AUSC_HEART : DET2_AUSC_LUNG;
+  var h = '<div class="gAuscCard"><h4>🎧 ' + gEsc(s.label) + " —— 放置听诊器</h4>"
+    + '<p class="gIntro">点击试听真实录音（来自 App 已入库的听诊素材）。听到形象后，点「记录发现」把证据钉上案件板。</p>';
+  pool.forEach(function(it, i){
+    h += '<div class="gAuscItem" id="gAuscIt' + i + '" onclick="det2AuscPlay(\'' + it[0] + "'," + i + ')"><span class="aIco">🩺</span>'
+      + "<div><b>" + it[1] + "</b><span>" + it[2] + "</span></div>"
+      + '<button class="aBtn" onclick="event.stopPropagation();det2AuscPlay(\'' + it[0] + "'," + i + ')">▶ 试听</button></div>';
+  });
+  h += '<div class="gTalkCtl" style="margin-top:13px">'
+    + '<button class="gBtn" onclick="det2AuscClose()">← 换个部位</button>'
+    + '<button class="gBtn pri" onclick="det2AuscRec()">📝 记录发现</button></div>'
+    + '<p class="gIntro" style="margin-top:8px">⚠️ 录音为标准听诊素材；「本患者此处」的实际发现以记录的查体证据文本为准。</p></div>';
+  var pop = document.createElement("div");
+  pop.id = "gAuscPop"; pop.className = "gAuscPop"; pop.innerHTML = h;
+  pop.addEventListener("click", function(e){ if(e.target === pop) det2AuscClose(); });
+  document.body.appendChild(pop);
+  if(!gProg().auscTried) { toast("💡 提示：多试听几种声音再记录，是侦探的基本功"); var p = gProg(); p.auscTried = true; gProgSave(p); }
+}
+function det2AuscPlay(key, idx){
+  var pool = det2AuscCtx.au && DET2_AUSC_HEART.some(function(x){ return x[0] === det2AuscCtx.au; }) ? DET2_AUSC_HEART : DET2_AUSC_LUNG;
+  var card = document.getElementById("gAuscIt" + idx);
+  $$(".gAuscItem").forEach(function(el){ el.classList.remove("playing"); });
+  if(card) card.classList.add("playing");
+  gBeatPlay(key, 1, null);
+  if(card){ var b = card.querySelector(".aBtn"); if(b){ b.textContent = "⏸ 播放中"; } }
+}
+function det2AuscClose(){
+  var pop = document.getElementById("gAuscPop");
+  if(pop) pop.remove();
+  beatStop();
+}
+function det2AuscRec(){
+  var s = det2AuscCtx;
+  if(!s) return;
+  det2AuscClose();
+  var c = DET_CASES[det2.ci];
+  var o = c.opts.find(function(x){ return x.id === s.op; });
+  if(o && !(det2.done && det2.done[o.id])){
+    det2.done = det2.done || {};
+    if((det2.budget == null ? 10 : det2.budget) < o.cost){ toast("⏱ 时间不够了"); return; }
+    det2.budget = (det2.budget == null ? 10 : det2.budget) - o.cost;
+    det2.done[o.id] = true;
+    if(o.ev[0] && c.keyEv.indexOf(o.ev[0].t) >= 0) toast("⭐ 关键证据入手！");
+  }
+  det2.lastSay = s.find; det2.lastWho = "🩺 听诊 · " + s.label;
+  det2.tab = "board";
+  det2Render();
+  addExp(1);
+}
+function det2Danger(){
+  var c = DET_CASES[det2.ci];
+  if(det2.dangerSeen){ toast("危险信号已在案件板标注"); return; }
+  det2.dangerSeen = true;
+  var h = '<div class="gAuscCard"><h4>🚨 危险信号评估</h4>';
+  c.danger.forEach(function(d){ h += '<div class="gPin" style="border-color:#fca5a5"><b style="color:#b91c1c">⚠️</b><p style="color:#7f1d1d">' + gEsc(d) + "</p></div>"; });
+  h += '<div class="gTalkCtl"><button class="gBtn pri" onclick="document.getElementById(\'gAuscPop\').remove()">收到，优先处理</button></div></div>';
+  var pop = document.createElement("div");
+  pop.id = "gAuscPop"; pop.className = "gAuscPop"; pop.innerHTML = h;
+  pop.addEventListener("click", function(e){ if(e.target === pop) pop.remove(); });
+  document.body.appendChild(pop);
+  det2PanelRefresh();
+}
+function det2Submit(){
+  var c = DET_CASES[det2.ci];
+  if(!det2.cands || !det2.cands.length){ toast("先在案件板上钉上嫌疑诊断"); return; }
+  var ansIdx = c.cands.indexOf(c.answer);
+  var correct = det2.cands[0] === ansIdx;
+  var keyFound = 0;
+  c.opts.forEach(function(o){
+    if(det2.done && det2.done[o.id]) o.ev.forEach(function(e){ if(c.keyEv.indexOf(e.t) >= 0) keyFound++; });
+  });
+  var score = (correct ? 40 : 0) + Math.min(keyFound * 8, 32) + (det2.dangerSeen ? 10 : 0) + Math.max(0, Math.min(det2.budget == null ? 0 : det2.budget, 5) * 2);
+  var stars = score >= 75 ? 3 : score >= 55 ? 2 : score >= 35 ? 1 : 0;
+  var P = gProg();
+  P.det = P.det || {s:[]};
+  if(!P.det.s[det2.ci] || P.det.s[det2.ci] < stars) P.det.s[det2.ci] = stars;
+  gProgSave(P);
+  var cls = stars === 3 ? "good" : stars >= 1 ? "mid" : "bad";
+  var stamp = stars === 3 ? "完美结案" : stars >= 1 ? "结案" : "重新侦查";
+  var h = '<div class="gReport"><h4>结案报告 · ' + gEsc(c.answer) + '<span class="gStamp ' + cls + '">' + stamp + " " + gStarStr(stars) + "</span></h4>";
+  h += "<p><b>得分 " + score + "</b>（正确 40 + 关键证据 " + Math.min(keyFound * 8, 32) + "/32 + 危险信号 10 + 资源节余）</p>";
+  h += "<p>关键证据 " + keyFound + "/" + c.keyEv.length + " · 剩余时间 " + (det2.budget == null ? 0 : det2.budget) + " 点 · 危险信号 " + (det2.dangerSeen ? "已评估 ✅" : "未评估 ⚠️") + "</p></div>";
+  h += '<div class="blk"><h4><span class="hIco">🔑</span>关键证据清单</h4><ul>' + c.keyEv.map(function(k){ return "<li>" + gEsc(k) + "</li>"; }).join("") + "</ul></div>";
+  h += '<div class="blk"><h4><span class="hIco">🕳️</span>常见遗漏</h4><ul>' + c.miss.map(function(k){ return "<li>" + gEsc(k) + "</li>"; }).join("") + "</ul></div>";
+  h += '<div class="blk"><h4><span class="hIco">🧠</span>常见错误思路</h4><ul>' + c.wrongThink.map(function(k){ return "<li>" + gEsc(k) + "</li>"; }).join("") + "</ul></div>";
+  h += '<div class="blk"><h4><span class="hIco">📝</span>侦探笔记</h4><p>' + gEsc(c.review) + "</p></div>";
+  h += '<div class="gTalkCtl" style="justify-content:center">'
+    + '<button class="gBtn" onclick="det2Brief(' + det2.ci + ')">↻ 重查本案</button>'
+    + (det2.ci + 1 < DET_CASES.length ? '<button class="gBtn pri" onclick="det2Brief(' + (det2.ci+1) + ')">📁 接下一卷 →</button>' : '<button class="gBtn pri" onclick="det2Home()">回到事务所</button>')
+    + "</div>";
+  $("#shBody").innerHTML = h;
+  addExp(6);
+}
+
+/* ============================================================
+   引擎 v2-2 · 异常化验单：密室地图 → 房间场景 → 数字键盘
+   ============================================================ */
+var lab2 = {ri:0, code:"", errs:0, hints:0};
+
+function lab2Home(){
+  var P = gProg();
+  var s = (P.lab && P.lab.s) || [];
+  openSheet("🔐 异常化验单", "深夜检验科 · 连环密室");
+  var h = '<div class="gScene">' + gArtRoom() + "</div>";
+  h += '<div class="gIntro">🔓 你被反锁在深夜的检验科。六间房间各藏一道医学谜题：<b>答对拿到密码 → 在门锁键盘上输入 → 进入下一间</b>。答错和提示都会记入评级。</div>';
+  LAB_ROOMS.forEach(function(r, i){
+    var done = s[i] > 0;
+    var locked = i > 0 && !s[i-1];
+    h += '<div class="gMapNode ' + (locked ? "lock" : "") + '" ' + (locked ? "" : 'onclick="lab2Room(' + i + ')"') + '>'
+      + '<span class="gMapDot">' + (done ? "✓" : locked ? "🔒" : i+1) + "</span>"
+      + '<span class="gMapBody"><b>' + gEsc(r.room) + '</b><span class="gCost2">' + (done ? "已逃脱 " + gStarStr(s[i]) : locked ? "先过上一间" : "谜题待解") + "</span><br>" + gEsc(r.q.slice(0, 26)) + "…</span></div>";
+  });
+  $("#shBody").innerHTML = h;
+}
+function lab2Room(i){
+  var r = LAB_ROOMS[i]; if(!r) return;
+  lab2.ri = i; lab2.code = ""; lab2.roomErrs = 0;
+  openSheet("🔐 " + r.room, "第 " + (i+1) + "/" + LAB_ROOMS.length + " 间 · 教学虚构病例");
+  var h = '<div class="gDocBar"><button class="gBtn" onclick="lab2Home()">← 密室地图</button><button class="gBtn" onclick="lab2Home()">↻ 重来</button></div>';
+  h += '<div class="gScene" style="min-height:150px">' + gArtRoom()
+    + gRoomHotspotIcon(60, 40, "📄", "lab2Spot(0)")
+    + gRoomHotspotIcon(278, 55, "🖥️", "lab2Spot(1)")
+    + gRoomHotspotIcon(170, 48, "🚪", "lab2Spot(2)")
+    + "</div>";
+  h += '<div id="lab2SpotBox"></div>';
+  h += '<div class="blk"><h4><span class="hIco">❓</span>谜题</h4><p><b>' + gEsc(r.q) + '</b></p><div id="lab2Opts">';
+  r.opts.forEach(function(o, oi){
+    h += '<div class="gLabOpt" id="lab2Opt' + oi + '" onclick="lab2Ans(' + oi + ')"><b>' + "ABCD"[oi] + ".</b> " + gEsc(o) + "</div>";
+  });
+  h += '</div><div id="gLabFb"></div>';
+  h += '<button class="gBtn" onclick="lab2Hint()">💡 提示（已用 ' + lab2.hints + ' 次）</button><div id="gLabHintBox"></div></div>';
+  h += '<div class="blk"><h4><span class="hIco">🔒</span>门锁键盘</h4>'
+    + '<p class="gIntro">答对谜题获得 4 位密码，在下方键盘输入解锁。防穷举：输错记失误。</p>'
+    + '<div class="gKeyScreen" id="lab2Screen">' + (lab2.code || "－ － － －").split("").join(" ") + "</div>"
+    + '<div class="gKeypad">';
+  [1,2,3,4,5,6,7,8,9,"C",0,"↵"].forEach(function(k){
+    h += '<button class="gKey" onclick="lab2Key(\'' + k + '\')">' + k + "</button>";
+  });
+  h += '</div><div id="gLabLockMsg"></div></div>';
+  $("#shBody").innerHTML = h;
+}
+function lab2Spot(n){
+  var r = LAB_ROOMS[lab2.ri];
+  var box = document.getElementById("lab2SpotBox");
+  if(!box) return;
+  if(n === 0){
+    box.innerHTML = '<div class="blk"><h4><span class="hIco">📄</span>现场资料（报告单）</h4><ul class="gData">' + r.data.map(function(d){ return "<li>" + gEsc(d) + "</li>"; }).join("") + "</ul></div>";
+  } else if(n === 1){
+    box.innerHTML = '<div class="blk"><h4><span class="hIco">🖥️</span>监护与分析仪</h4><p>' + gEsc(r.story) + "</p><p class=\"gIntro\">仪器运行正常——异常的是数字，不是机器。</p></div>";
+  } else {
+    box.innerHTML = '<div class="blk"><h4><span class="hIco">🚪</span>门锁</h4><p>四位密码来自本题正确答案的序号与校验位。答对谜题才知道。</p></div>';
+  }
+  box.scrollIntoView({behavior:"smooth", block:"nearest"});
+}
+function lab2Ans(n){
+  var r = LAB_ROOMS[lab2.ri];
+  if(n === r.a){
+    $$(".gLabOpt").forEach(function(el, k){ el.classList.toggle("ok", k === n); el.classList.remove("bad"); });
+    $("#gLabFb").innerHTML = '<div class="gExplain"><b>✅ 推理链：</b>' + gEsc(r.explain) + "</div>"
+      + '<div class="gKnow">📚 知识点：' + gEsc(r.know) + "</div>"
+      + '<p class="gCodeReveal">🔑 门牌上浮现密码：<b>' + r.code + "</b> —— 到门锁键盘输入！</p>";
+    var P = gProg(); P.lab = P.lab || {s:[]}; P.lab.s[lab2.ri] = Math.max(P.lab.s[lab2.ri] || 0, lab2.hints + lab2.errs <= 1 ? 3 : lab2.hints + lab2.errs <= 4 ? 2 : 1);
+    gProgSave(P);
+  } else {
+    lab2.errs++; lab2.roomErrs++;
+    var el = document.getElementById("lab2Opt" + n);
+    if(el) el.classList.add("bad");
+    $("#gLabFb").innerHTML = '<div class="gWrong">❌ ' + gEsc(r.wrong[n]) + "</div>";
+  }
+}
+function lab2Hint(){
+  var r = LAB_ROOMS[lab2.ri];
+  if(lab2.hints >= 3){ toast("提示已全部给出"); return; }
+  $("#gLabHintBox").innerHTML += '<div class="gHint">' + gEsc(r.hints[lab2.hints]) + "</div>";
+  lab2.hints++;
+}
+function lab2Key(k){
+  if(k === "C"){ lab2.code = ""; }
+  else if(k === "↵"){ lab2Enter(); return; }
+  else if(lab2.code.length < 4){ lab2.code += k; }
+  var scr = document.getElementById("lab2Screen");
+  if(scr) scr.textContent = (lab2.code + "－－－－".slice(lab2.code.length)).split("").join(" ");
+}
+function lab2Enter(){
+  var r = LAB_ROOMS[lab2.ri];
+  if(lab2.code === r.code){
+    var keys = $$(".gKey"); keys.forEach(function(k){ k.classList.add("ok"); });
+    setTimeout(function(){ if(lab2.ri + 1 < LAB_ROOMS.length){ lab2Room(lab2.ri + 1); } else { lab2Finish(); } }, 420);
+  } else {
+    lab2.errs++; lab2.roomErrs++;
+    $("#gLabLockMsg").innerHTML = '<div class="gWrong">🔒 「' + lab2.code + "」不对——密码来自本题答案，先解谜。</div>";
+    lab2.code = "";
+    var scr = document.getElementById("lab2Screen");
+    if(scr) scr.textContent = "－ － － －";
+  }
+}
+function lab2Finish(){
+  var total = lab2.errs + lab2.hints;
+  var grade = total <= 1 ? "🏆 S" : total <= 4 ? "🥈 A" : total <= 8 ? "🥉 B" : "📖 C";
+  $("#shBody").innerHTML = '<div class="gDocBar"><button class="gBtn" onclick="gBackGames()">← 返回游戏模式</button>'
+    + '<button class="gBtn pri" onclick="lab2Home()">↻ 再玩一次</button></div>'
+    + '<div class="gReport"><h4>黎明破晓 · 逃脱成功 <span class="gStamp good">' + grade + "</span></h4>"
+    + "<p>答错 " + lab2.errs + " 次 · 提示 " + lab2.hints + " 次。六间房谜题环环相扣：上一间的异常正是下一间的伏笔。</p></div>"
+    + '<div class="blk"><h4><span class="hIco">📚</span>全部知识点</h4><ul>' + LAB_ROOMS.map(function(r){ return "<li><b>" + gEsc(r.room) + "</b>：" + gEsc(r.know) + "</li>"; }).join("") + "</ul></div>";
+  addExp(10);
+}
+
+/* ============================================================
+   引擎 v2-3 · 生命节拍：关卡地图 → 脉冲唱片 → 连击
+   ============================================================ */
+var beat2 = {li:0, combo:0, firstTry:true};
+
+function beat2Home(){
+  var P = gProg();
+  var s = (P.beat && P.beat.s) || {};
+  openSheet("🎵 生命节拍", "节奏识别训练 · 真实录音");
+  var h = '<div class="gBanner t-beat"><div class="gBico">🎧</div><h3>把耳朵练成节拍器</h3><p>四个维度：频率 · 规则性 · 波形特征 · 临床背景。反馈会告诉你混淆了哪一维。</p></div>';
+  h += '<div class="gMap">';
+  BEAT_LEVELS.forEach(function(L, i){
+    var st = s[i] || 0;
+    var locked = i > 0 && !s[i-1];
+    h += '<div class="gMapNode ' + (st ? "done" : locked ? "lock" : i === 0 || s[i-1] ? "cur" : "lock") + '" ' + (locked ? "" : 'onclick="beat2Level(' + i + ')"') + '>'
+      + '<span class="gMapDot">' + (st ? "★" : locked ? "🔒" : i+1) + "</span>"
+      + '<span class="gMapBody"><b>' + gEsc(L.title) + '</b><span class="gCost2">' + gStarStr(st) + " · 维度" + L.lvl + "</span><br>" + gEsc(L.goal.slice(0, 30)) + "…</span></div>";
+  });
+  h += "</div>";
+  h += '<div class="gIntro">⚠️ 本模块只训练节律特征识别，不能据此作出完整临床诊断；确认依赖心电图与超声心动图。</div>';
+  $("#shBody").innerHTML = h;
+}
+function beat2Level(i){
+  var L = BEAT_LEVELS[i]; if(!L) return;
+  beat2.li = i; beat2.firstTry = true;
+  beatStop();
+  openSheet("🎵 第 " + (i+1) + "/" + BEAT_LEVELS.length + " 关 · " + L.title, "维度 " + BEAT_LVL_NAME[L.lvl] + " · 真实录音");
+  var dur = (60 / (L.bpm || 75)).toFixed(2);
+  var h = '<div class="gDocBar"><button class="gBtn" onclick="beat2Home()">← 关卡地图</button><button class="gBtn" onclick="beat2Level(' + i + ')">↻ 重听</button></div>';
+  h += '<div class="blk"><h4><span class="hIco">🎯</span>目标</h4><p>' + gEsc(L.goal) + "</p></div>";
+  h += '<div class="gDiscWrap"><div class="gDisc" id="beat2Disc" style="animation-duration:' + dur + 's">🎧</div></div>';
+  h += '<div class="gCombo" id="beat2Combo">连击 <b>' + beat2.combo + "</b> × ｜ 参考节律约 " + L.bpm + " 次/分</div>";
+  h += '<div class="gBeatCtl" style="justify-content:center">'
+    + '<button class="gBtn pri" onclick="beat2Ctl(1,0)">▶ 原速循环</button>'
+    + '<button class="gBtn" onclick="beat2Ctl(0.65,1)">🐢 慢放 0.65×</button>'
+    + '<button class="gBtn" onclick="beat2Stop2()">⏹ 停止</button></div>';
+  h += '<div class="blk"><h4><span class="hIco">❓</span>你听到了什么？</h4><div id="beat2Opts">';
+  L.opts.forEach(function(o, oi){
+    h += '<div class="gLabOpt" id="beat2Opt' + oi + '" onclick="beat2Ans(' + oi + ')"><b>' + "ABCD"[oi] + ".</b> " + gEsc(o) + "</div>";
+  });
+  h += '</div><div id="gBeat2Fb"></div></div>';
+  $("#shBody").innerHTML = h;
+}
+function beat2Ctl(rate, slow){
+  var L = BEAT_LEVELS[beat2.li];
+  var disc = document.getElementById("beat2Disc");
+  if(disc){ disc.classList.add("beat"); disc.classList.toggle("slow", !!slow); }
+  gBeatPlay(L.au, rate, null);
+}
+function beat2Stop2(){
+  beatStop();
+  var disc = document.getElementById("beat2Disc");
+  if(disc) disc.classList.remove("beat", "slow");
+}
+function beat2Ans(n){
+  var L = BEAT_LEVELS[beat2.li];
+  if(n === L.a){
+    $$(".gLabOpt").forEach(function(el, k){ el.classList.toggle("ok", k === n); el.classList.remove("bad"); });
+    beat2Stop2();
+    var stars = beat2.firstTry ? 3 : 2;
+    if(beat2.firstTry){ beat2.combo++; } else { beat2.combo = 0; }
+    var P = gProg(); P.beat = P.beat || {s:{}, combo:0};
+    if(!P.beat.s[beat2.li] || P.beat.s[beat2.li] < stars){ P.beat.s[beat2.li] = stars; }
+    if(beat2.combo > (P.beat.combo || 0)) P.beat.combo = beat2.combo;
+    gProgSave(P);
+    var cb = document.getElementById("beat2Combo");
+    if(cb) cb.innerHTML = "连击 <b>" + beat2.combo + "</b> ×" + (beat2.combo >= 3 ? " 🔥 手感来了！" : "");
+    $("#gBeat2Fb").innerHTML = '<div class="gExplain"><b>✅ 正确（' + "★".repeat(stars) + "）</b><p>" + gEsc(L.explain) + "</p></div>"
+      + '<div class="gKnow">🩺 临床意义：' + gEsc(L.clinic) + "</div>"
+      + '<div class="gWrong" style="border-color:#f59e0b">⚠️ 边界：' + gEsc(L.caution) + "</div>"
+      + '<div class="gBeatCtl">'
+      + (beat2.li + 1 < BEAT_LEVELS.length ? '<button class="gBtn pri" onclick="beat2Level(' + (beat2.li+1) + ')">下一关 →</button>' : '<button class="gBtn pri" onclick="beat2Done()">🎉 全部通关</button>')
+      + '<button class="gBtn" onclick="beat2Home()">返回地图</button></div>';
+  } else {
+    beat2.firstTry = false; beat2.combo = 0;
+    var el = document.getElementById("beat2Opt" + n);
+    if(el) el.classList.add("bad");
+    $("#gBeat2Fb").innerHTML = '<div class="gWrong">❌ ' + gEsc(L.wrong[n]) + "</div><p class=\"gIntro\">再听一次：频率、规则性、波形、临床背景是四个独立的维度。</p>";
+  }
+}
+function beat2Done(){
+  var P = gProg();
+  var bs = (P.beat && P.beat.s) || {};
+  var sum = 0; BEAT_LEVELS.forEach(function(_, i){ sum += bs[i] || 0; });
+  beatStop();
+  $("#shBody").innerHTML = '<div class="gDocBar"><button class="gBtn" onclick="gBackGames()">← 返回</button></div>'
+    + '<div class="gReport"><h4>🏆 十关全通 <span class="gStamp good">' + sum + "/30 ★</span></h4>"
+    + "<p>最高连击 " + ((P.beat && P.beat.combo) || 0) + "。复盘口诀：先定频率，再看规则，后辨波形，最后配临床。</p>"
+    + "<p>⚠️ 听诊识别不能替代心电图与超声心动图。</p></div>";
+  addExp(10);
+}
+
+/* ============================================================
+   引擎 v2-4 · 有温度的问诊室：手机聊天界面
+   ============================================================ */
+var talk2 = {ci:0, ni:"n1", info:0, maxInfo:0, trust:0, log:[]};
+
+function talk2Home(){
+  var P = gProg();
+  var s = (P.talk && P.talk.s) || [];
+  openSheet("💬 有温度的问诊室", "诊室里的对话 · 剧情选择");
+  var h = '<div class="gBanner t-talk"><div class="gBico">💬</div><h3>沟通不是选最温柔的话</h3><p>目标是在建立信任的同时拿到关键医学信息。两条腿缺一不可。</p></div>';
+  TALK_CASES.forEach(function(c, i){
+    var st = s[i] || 0;
+    var locked = i > 0 && !s[i-1];
+    h += '<div class="gBanner t-talk"><div class="gBico">' + ["🧑‍🏫","🚬","🏃"][i] + '</div><h3>' + c.name + '</h3><p>' + c.age + " ｜ " + (st ? "已完诊 " + gStarStr(st) : "候诊中") + "</p></div>";
+    if(locked){ h += '<div class="gCard2"><div class="gLockBar">🔒 先完诊上一位，下一位才进诊室</div></div>'; }
+    else {
+      h += '<div class="gCard2"><div class="gCBd"><div class="gBtns"><button class="gBtn pri" onclick="talk2Pick(' + i + ')">' + (st ? "↻ 再次接诊" : "🩺 叫号接诊") + "</button></div></div></div>";
+    }
+  });
+  $("#shBody").innerHTML = h;
+}
+function talk2Mood(){
+  return talk2.trust >= 3 ? "😊" : talk2.trust >= 0 ? "🙂" : talk2.trust >= -2 ? "😟" : "😔";
+}
+function talk2Push(kind, txt){
+  var log = document.getElementById("gChatLog");
+  if(!log) return;
+  var d = document.createElement("div");
+  d.className = "gMsg " + kind;
+  d.innerHTML = kind === "note" ? gEsc(txt) : gEsc(txt);
+  log.appendChild(d);
+  log.scrollTop = log.scrollHeight;
+}
+function talk2Pick(i){
+  var c = TALK_CASES[i]; if(!c) return;
+  talk2.ci = i; talk2.ni = c.nodes[0].id;
+  talk2.info = 0; talk2.maxInfo = 0; talk2.trust = 0; talk2.log = [];
+  openSheet("💬 诊室 · " + c.name, c.age + " · 教学虚构病例");
+  var h = '<div class="gPhone">'
+    + '<div class="gChatTop"><span class="gChatAva">' + gArtFace(i + 1) + "</span>"
+    + "<div><b>" + gEsc(c.name) + '</b><span id="talk2Sub">诊室问诊中 <span class="gMood" id="talk2Mood">🙂</span></span></div>'
+    + '<span style="margin-left:auto;font-size:11px;opacity:.9" id="talk2Hud">信息 0 ｜ 信任 +0</span></div>'
+    + '<div class="gChatLog" id="gChatLog"></div></div>'
+    + '<div id="talk2Opts" class="gChatOpts"></div>';
+  $("#shBody").innerHTML = h;
+  talk2Push("note", "📋 患者背景：" + c.bg);
+  talk2Node();
+}
+function talk2Node(){
+  var c = TALK_CASES[talk2.ci];
+  var nd = c.nodes.find(function(n){ return n.id === talk2.ni; });
+  if(!nd){ talk2Finish(); return; }
+  talk2Push("them", nd.say);
+  var box = document.getElementById("talk2Opts");
+  if(nd.opts && nd.opts.length){
+    talk2.maxInfo += 2;
+    box.innerHTML = "";
+    nd.opts.forEach(function(o, oi){
+      var d = document.createElement("div");
+      d.className = "gChatOpt"; d.id = "talk2Opt" + oi;
+      d.innerHTML = '<span class="gTy">' + (TALK_TY_ICON[o.ty] || "💬") + " " + gEsc(o.ty) + "</span>" + gEsc(o.t);
+      d.onclick = function(){ talk2Opt(oi); };
+      box.appendChild(d);
+    });
+  } else {
+    box.innerHTML = '<div class="gChatOpt" style="text-align:center;font-weight:700;color:var(--teal2)" onclick="talk2Finish()">📋 问诊结束 · 查看评价</div>';
+  }
+}
+function talk2Opt(oi){
+  var c = TALK_CASES[talk2.ci];
+  var nd = c.nodes.find(function(n){ return n.id === talk2.ni; });
+  var o = nd.opts[oi]; if(!o) return;
+  talk2.info += (o.info || 0); talk2.trust += (o.trust || 0);
+  talk2.log.push({say: nd.say, t: o.t, ty: o.ty, fb: o.fb});
+  var box = document.getElementById("talk2Opts");
+  if(box) box.innerHTML = "";
+  talk2Push("me", o.t);
+  talk2Push("note", (TALK_TY_ICON[o.ty] || "") + " " + o.ty + "：" + o.fb);
+  var hud = document.getElementById("talk2Hud");
+  if(hud) hud.textContent = "信息 " + talk2.info + " ｜ 信任 " + (talk2.trust >= 0 ? "+" : "") + talk2.trust;
+  var mood = document.getElementById("talk2Mood");
+  if(mood) mood.textContent = talk2Mood();
+  if(o.next){ talk2.ni = o.next; talk2Node(); }
+  else talk2Finish();
+}
+function talk2Finish(){
+  var c = TALK_CASES[talk2.ci];
+  var pct = talk2.maxInfo ? Math.round(talk2.info / talk2.maxInfo * 100) : 0;
+  var stars = (pct >= 80 && talk2.trust >= 2) ? 3 : (pct >= 80 || (pct >= 50 && talk2.trust >= 2)) ? 2 : pct >= 50 ? 1 : 0;
+  var P = gProg(); P.talk = P.talk || {s:[]};
+  if(!P.talk.s[talk2.ci] || P.talk.s[talk2.ci] < stars) P.talk.s[talk2.ci] = stars;
+  gProgSave(P);
+  var cls = stars === 3 ? "good" : stars >= 1 ? "mid" : "bad";
+  var h = '<div class="gReport"><h4>完诊评价 · ' + gEsc(c.name) + '<span class="gStamp ' + cls + '">' + gStarStr(stars) + "</span></h4>";
+  h += "<p><b>病史完整性</b> " + talk2.info + "/" + talk2.maxInfo + "（" + pct + "%） ｜ <b>信任分</b> " + (talk2.trust >= 0 ? "+" : "") + talk2.trust + "（患者此刻心情 " + talk2Mood() + "）</p></div>";
+  h += '<div class="blk"><h4><span class="hIco">🔑</span>本例必须获取的关键信息</h4><ul>' + c.keyInfo.map(function(k){ return "<li>" + gEsc(k) + "</li>"; }).join("") + "</ul></div>";
+  h += '<div class="blk"><h4><span class="hIco">🚨</span>必须识别的危险信号</h4><ul>' + c.danger.map(function(k){ return '<li class="gDanger">' + gEsc(k) + "</li>"; }).join("") + "</ul></div>";
+  h += '<div class="blk"><h4><span class="hIco">💭</span>隐藏顾虑（复盘揭示）</h4><p>' + gEsc(c.hidden) + '</p><p class="gIntro">「最温柔的话」未必得分——问到点上、同时让患者愿意开口，才是核心。</p></div>';
+  h += '<div class="gTalkCtl" style="justify-content:center">'
+    + '<button class="gBtn" onclick="talk2Pick(' + talk2.ci + ')">↻ 再次接诊</button>'
+    + (talk2.ci + 1 < TALK_CASES.length ? '<button class="gBtn pri" onclick="talk2Pick(' + (talk2.ci+1) + ')">下一位患者 →</button>' : '<button class="gBtn pri" onclick="talk2Home()">回到候诊区</button>')
+    + "</div>";
+  $("#shBody").innerHTML = h;
+  addExp(6);
+}
 </script>
 <div id="toast"></div>
 </body>
