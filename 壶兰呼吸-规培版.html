@@ -12263,6 +12263,86 @@ var playAU = async function(type, btn){
   }
 };
 
+/* ============================================================
+   游戏 v4 · 互动反馈引擎（v6.7）—— 先是游戏，才是医学
+   飘字 / 抖动 / 全屏脉冲 / 数字补间 / 星级逐点点亮 / AP 进度条 / 连锁徽标
+   仅使用视觉与触觉反馈；不新增任何合成音效
+   （听诊与影像模块仍坚持零合成真实素材原则）
+   ============================================================ */
+var GFX = {combo:0, comboBest:0, floats:0};
+
+function gFxReset(){ GFX.combo = 0; GFX.comboBest = 0; }
+
+/* 飘字：在面板顶部浮出一行反馈，1.5s 自动消失 */
+function gFxFloat(txt, kind){
+  var box = document.getElementById("shBody");
+  if(!box) return null;
+  var d = document.createElement("div");
+  d.className = "gFloat f-" + (kind || "info");
+  d.id = "gFxFloat";
+  d.textContent = txt;
+  box.appendChild(d);
+  GFX.floats++;
+  setTimeout(function(){ if(d.parentNode) d.remove(); }, 1500);
+  return d;
+}
+/* 抖动：给选中元素加一次冲击动画 */
+function gFxShake(sel){
+  var el = document.querySelector(sel);
+  if(!el) return;
+  el.classList.add("gShake");
+  setTimeout(function(){ el.classList.remove("gShake"); }, 520);
+}
+/* 全屏脉冲：ok=绿（达成） bad=红（严重事件） */
+function gFxPulse(kind){
+  var d = document.createElement("div");
+  d.className = "gPulse " + (kind === "bad" ? "p-bad" : "p-ok");
+  d.id = "gFxPulse";
+  document.body.appendChild(d);
+  setTimeout(function(){ if(d.parentNode) d.remove(); }, 900);
+}
+/* 触觉反馈：移动端可用，桌面静默失败不影响流程 */
+function gFxVibrate(p){
+  try{ if(navigator && navigator.vibrate) navigator.vibrate(p || 24); }catch(e){}
+}
+/* 数字补间：仪表盘数值滚动 */
+function gTweenNum(el, from, to, ms, fix){
+  if(!el) return;
+  if(from == null || isNaN(from) || !window.requestAnimationFrame){
+    el.textContent = (fix != null ? Number(to).toFixed(fix) : String(Math.round(to)));
+    return;
+  }
+  var t0 = Date.now(), dur = ms || 420;
+  function tick(){
+    var p = Math.min(1, (Date.now() - t0) / dur);
+    var v = from + (to - from) * (1 - Math.pow(1 - p, 3));
+    el.textContent = (fix != null ? v.toFixed(fix) : String(Math.round(v)));
+    if(p < 1) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+/* 星级逐点点亮 */
+function gStarAnim(n){
+  var s = "";
+  for(var i = 1; i <= 3; i++){
+    s += '<span class="gStar' + (i <= n ? " on" : "") + '" style="animation-delay:' + (i * 0.22).toFixed(2) + 's">★</span>';
+  }
+  return s;
+}
+/* AP / 资源进度条 */
+function gApBar(cur, max, low){
+  var pct = Math.max(0, Math.min(100, cur / max * 100));
+  return '<div class="gApBar' + (low ? " low" : "") + '"><i style="width:' + pct + '%"></i><b>' + cur + "/" + max + "</b></div>";
+}
+/* 连锁徽标 */
+function gChainBadge(n){
+  return n > 0 ? '<span class="gChain x' + Math.min(n, 5) + '">⛓ 连锁 ×' + n + "</span>" : "";
+}
+/* 队列徽标（跳动） */
+function gBadge(txt, bump){
+  return '<span class="gBadge' + (bump ? " bump" : "") + '">' + txt + "</span>";
+}
+
 /* 内科侦探所 · 病例数据
    id 关卡  title 标题  diff 难度  brief 主诉与基本资料  vitals 生命体征字符串
    danger [危险信号文本]  cands [候选诊断名，4 个]
@@ -14192,7 +14272,11 @@ var CARD_BOSSES = [
   tip:"你不是在与一个敌人作战，而是在管理一组互相耦合的变量。酮症与电解质必须同时管理，只纠一个另一个继续吃储备。"}
 ];
 
-var boss2 = {bi:0, r:0, reserve:100, clock:0, time:240, att:5, res:8, hand:[], deck:[], done:{}, doneR:{}, log:[], rail:0};
+/* 规范连锁：打出「上一张→本张」的规范配对即触发连锁，储备 +2 并累计 combo */
+var CARD_CHAIN = [["P1","P2"],["I5","T2"],["I3","I6"],["C3","T6"],["T1","T7"],["M3","T7"],
+                  ["C2","T7"],["T2","M4"],["T1","M2"],["T6","M1"],["H3","I1"],["P3","T1"]];
+
+var boss2 = {bi:0, r:0, reserve:100, clock:0, time:240, att:5, res:8, hand:[], deck:[], done:{}, doneR:{}, log:[], rail:0, mull:2, discard:0, lastCard:"", lastCardR:0};
 
 function boss2Shuffle(a){
   for(var i = a.length - 1; i > 0; i--){ var j = Math.floor(Math.random()*(i+1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
@@ -14247,6 +14331,8 @@ function boss2Start(bi){
   boss2.done = {}; boss2.doneR = {}; boss2.log = []; boss2.rail = 0;
   boss2.deck = boss2Shuffle(CARD_ORDER.slice());
   boss2.hand = [];
+  boss2.mull = 2; boss2.discard = 0; boss2.lastCard = ""; boss2.lastCardR = 0;
+  gFxReset();
   boss2Draw(5);
   boss2.logPush("round", "第 1 轮 · " + B.dx + " 已就座。它的血量不是感染量——是患者的储备。");
   boss2Fight();
@@ -14258,9 +14344,13 @@ function boss2Fight(){
   var lostPct = 100 - boss2.reserve;
   var h = '<div class="gDocBar"><button class="gBtn" onclick="boss2Home()">← 牌桌列表</button>'
     + '<span class="gBtn" style="border:none;cursor:default">第 <b>' + boss2.r + "</b>/" + B.rounds + " 轮</span>"
-    + '<span class="gBtn" style="border:none;cursor:default">⏱ ' + boss2.time + " · 🧠 " + boss2.att + " · 💉 " + boss2.res + "</span></div>";
+    + '<button class="gBtn' + (boss2.mull ? "" : " dis") + '" onclick="boss2Mull()">🔄 换牌 ' + boss2.mull + "</button>"
+    + '<span class="gBtn" style="border:none;cursor:default">🂠 ' + boss2.deck.length + " ｜ ♻ " + boss2.discard + "</span>"
+    + '<span class="gBtn" style="border:none;cursor:default">⏱ ' + boss2.time + " · 🧠 " + boss2.att + " · 💉 " + boss2.res + "</span>"
+    + gChainBadge(GFX.combo) + "</div>";
   /* 对手面板 */
-  h += '<div class="gBossPanel s' + st + '"><div class="gBossTop"><b>🫁 ' + gEsc(B.name) + '</b><span class="gBossDx">' + gEsc(B.dx) + '</span></div>';
+  var panCls = "gBossPanel s" + st + (boss2.reserve <= 25 ? " crit" : boss2.reserve <= 50 ? " low" : "");
+  h += '<div class="' + panCls + '"><div class="gBossTop"><b>🫁 ' + gEsc(B.name) + '</b><span class="gBossDx">' + gEsc(B.dx) + '</span></div>';
   h += '<div class="gHPWrap"><div class="gHP" style="width:' + Math.max(boss2.reserve, 0) + '%"></div></div>';
   h += '<div class="gBossMeta">储备 <b>' + Math.max(boss2.reserve, 0) + '</b>/100 ｜ 阶段 ' + st + " · " + gEsc(B.stages[st-1]) + " ｜ 计时器 ";
   for(var g = 0; g < Math.min(boss2.clock, 12); g++) h += "▮";
@@ -14297,9 +14387,11 @@ function boss2Play(cid){
   var d = CARD_DEFS[cid];
   if(boss2.done[cid]){ toast("本轮已打过「" + d.n + "」，换张牌"); return; }
   if(boss2.time < d.c[0] || boss2.att < d.c[1] || boss2.res < d.c[2]){ toast("资源不够：⏱" + d.c[0] + " 🧠" + d.c[1] + " 💉" + d.c[2]); return; }
+  var res0 = boss2.reserve;
   boss2.time -= d.c[0]; boss2.att -= d.c[1]; boss2.res -= d.c[2];
   boss2.done[cid] = true; boss2.doneR[cid] = boss2.r;
   boss2.hand = boss2.hand.filter(function(x){ return x !== cid; });
+  boss2.discard++;
   /* 卡牌特效 */
   var note = "";
   if(cid === "H1"){ boss2Draw(1); note = "抽 1 张"; }
@@ -14320,7 +14412,45 @@ function boss2Play(cid){
     } else { boss2.rail = 0; note = "代谢纠正轨道开启：此后每轮必须 M3"; }
   }
   if(boss2.rail > 0 && cid === "M3"){ boss2.reserve = Math.min(100, boss2.reserve + 3); note = "轨道复查达标：储备 +3"; }
+  /* 规范连锁判定：上一张与本张构成规范配对（2 轮内） */
+  var chained = false;
+  if(boss2.lastCard && boss2.r - boss2.lastCardR <= 1){
+    for(var ci = 0; ci < CARD_CHAIN.length; ci++){
+      if(CARD_CHAIN[ci][0] === boss2.lastCard && CARD_CHAIN[ci][1] === cid){ chained = true; break; }
+    }
+  }
+  boss2.lastCard = cid; boss2.lastCardR = boss2.r;
+  if(note && note.indexOf("红线") >= 0) GFX.combo = 0;
+  if(chained){
+    GFX.combo++;
+    if(GFX.combo > GFX.comboBest) GFX.comboBest = GFX.combo;
+    boss2.reserve = Math.min(100, boss2.reserve + 2);
+    note = (note ? note + "；" : "") + "⛓ 连锁 ×" + GFX.combo + "（储备 +2）";
+  }
   boss2.logPush(cid, "打出「" + d.n + "」" + (note ? "—— " + note : ""));
+  /* 即时反馈：飘字 + 受击抖动 + 触觉 */
+  var delta = boss2.reserve - res0;
+  if(delta < 0){
+    gFxFloat("储备 " + delta, "bad"); gFxShake(".gBossPanel"); gFxVibrate(40);
+  } else if(delta > 0){
+    gFxFloat("储备 +" + delta, "good");
+  } else if(chained){
+    gFxFloat("⛓ 连锁 ×" + GFX.combo, "good"); gFxVibrate(18);
+  } else {
+    gFxFloat("「" + d.n + "」", "info");
+  }
+  boss2Fight();
+}
+/* 换牌（mulligan）：弃掉整手重抽 5 张，每局 2 次 */
+function boss2Mull(){
+  if(boss2.mull <= 0){ toast("换牌机会已用完——牌桌不给你第三次"); return; }
+  boss2.mull--;
+  boss2.discard += boss2.hand.length;
+  boss2.hand = [];
+  boss2Draw(5);
+  boss2.logPush("round", "重新洗牌：弃掉整手重抽 5 张（剩余换牌 " + boss2.mull + " 次）");
+  gFxFloat("🔄 重新洗牌 · 剩余 " + boss2.mull + " 次", "info");
+  gFxVibrate(18);
   boss2Fight();
 }
 function boss2EndTurn(){
@@ -14392,8 +14522,9 @@ function boss2Finish(dead){
   if(!P.boss.s[boss2.bi] || P.boss.s[boss2.bi] < stars) P.boss.s[boss2.bi] = stars;
   gProgSave(P);
   var h = '<div class="gDocBar"><button class="gBtn" onclick="boss2Home()">← 牌桌列表</button></div>';
-  h += '<div class="gReport"><h4>' + (alive ? "结案 · " : "对局失败 · ") + gEsc(B.name) + '<span class="gStamp ' + (stars === 3 ? "good" : stars >= 1 ? "mid" : "bad") + '">' + (alive ? "胜利 " : "储备耗尽 ") + gStarStr(stars) + "</span></h4>";
+  h += '<div class="gReport"><h4>' + (alive ? "结案 · " : "对局失败 · ") + gEsc(B.name) + '<span class="gStamp ' + (stars === 3 ? "good" : stars >= 1 ? "mid" : "bad") + '">' + (alive ? "胜利 " : "储备耗尽 ") + gStarAnim(stars) + "</span></h4>";
   h += "<p><b>得分 " + score + "</b>（弱点命中 " + sc.pts + " + 存活 " + (alive ? 40 : 0) + " + 剩余储备 " + Math.max(0, Math.round(boss2.reserve / 10)) + "）</p>";
+  h += "<p>⛓ 最高连锁 ×" + GFX.comboBest + " ｜ 💉 弃牌堆 " + boss2.discard + " 张 ｜ 🔄 剩余换牌 " + boss2.mull + " 次</p>";
   h += "<p>计时器 " + boss2.clock + " 格 · 阶段 " + boss2Stage() + " · 剩余储备 " + Math.max(boss2.reserve, 0) + "/100</p></div>";
   h += '<div class="blk"><h4><span class="hIco">🎯</span>命中的规范节点</h4>' + (sc.hits.length ? "<ul>" + sc.hits.map(function(x){ return "<li>" + gEsc(x) + "</li>"; }).join("") + "</ul>" : "<p>无——流程节点是本游戏的主要得分来源。</p></div>");
   h += '<div class="blk"><h4><span class="hIco">🕳️</span>遗漏的节点</h4>' + (sc.misses.length ? "<ul>" + sc.misses.map(function(x){ return "<li>" + gEsc(x) + "</li>"; }).join("") + "</ul>" : "<p>无遗漏，规范流程满分。</p></div>");
@@ -14492,6 +14623,7 @@ function ward2Round(){
   var h = '<div class="gDocBar"><button class="gBtn" onclick="ward2Home()">← 值班室</button>'
     + '<span class="gBtn" style="border:none;cursor:default">' + WARD_ROUND_HINT[r] + "</span>"
     + '<span class="gBtn" style="border:none;cursor:default">⚡ AP <b id="ward2Ap">' + ward2.ap + "</b>/6</span></div>";
+  h += gApBar(ward2.ap, 6, ward2.ap <= 2);
   if(r === 4) h += '<div class="gBanner t-ward" style="border-color:#f87171"><div class="gBico">🚨</div><h3>急诊来电：65 岁男性突发胸痛 40 分钟</h3><p>分诊台请你马上处理。其余患者的任务也还在排队——时间不会为你暂停。</p></div>';
   if(r === 6) h += '<div class="gIntro">☎️ 本轮最后 3 个 AP 强制用于交接——先把手头的处理收尾。</div>';
   var list = WARD_PTS.filter(function(p){ return r !== 4 || p.id !== "zmy"; });
@@ -14500,7 +14632,9 @@ function ward2Round(){
     if(!ts.length && !(r === 4 && p.id === "zmy")) return;
     var anyLeft = ts.some(function(t, ti){ return !ward2.done[p.id + "-" + ti]; });
     var urgCls = p.urgent >= 4 ? "u4" : p.urgent === 3 ? "u3" : "u1";
-    h += '<div class="gWardPt ' + urgCls + '"><div class="gWardHead"><b>' + p.bed + " · " + p.name + '</b><span>' + p.age + " · " + gEsc(p.dx) + '</span><span class="gUrg">' + "▪".repeat(p.urgent) + '</span></div>';
+    var missR = Object.keys(ward2.miss).filter(function(k){ return k.split("-")[0] === p.id; }).map(function(k){ return "R" + k.split("-")[1]; });
+    h += '<div class="gWardPt ' + urgCls + '"><div class="gWardHead"><b>' + p.bed + " · " + p.name + '</b><span>' + p.age + " · " + gEsc(p.dx) + '</span><span class="gUrg">' + "▪".repeat(p.urgent) + '</span>'
+      + (missR.length ? gBadge("⚠ " + missR.join("/") + " 遗漏", true) : "") + "</div>";
     h += '<div class="gWardTasks">';
     ts.forEach(function(t, ti){
       var did = ward2.done[p.id + "-" + ti];
@@ -14536,6 +14670,8 @@ function ward2Do(pid, ti){
   ward2.used++;
   if(t.safe === 1) ward2.flag[pid + "-" + ward2.r] = true;
   ward2Round();
+  gFxVibrate(t.safe >= 1 ? 32 : 16);
+  gFxFloat((t.pri === 1 ? "🎯 " : t.safe >= 1 ? "✅ " : "✔ ") + t.t, t.safe >= 1 || t.pri === 1 ? "good" : "info");
   var fb = document.createElement("div");
   fb.className = "gAuscPop";
   fb.id = "gWardFb";
@@ -14544,6 +14680,7 @@ function ward2Do(pid, ti){
 }
 function ward2Next(){
   var r = ward2.r;
+  var wasted = ward2.ap;
   /* 未完成的 safe 任务 → 遗漏 */
   WARD_PTS.forEach(function(p){
     var ts = ward2TasksOf(p.id, r);
@@ -14560,6 +14697,7 @@ function ward2Next(){
   ward2.r++;
   ward2.ap = 6; ward2.done = {};
   ward2Round();
+  if(wasted > 0) gFxFloat("⏳ 剩余 " + wasted + " AP 作废", "bad");
 }
 function ward2Handover(){
   var h = '<div class="gDocBar"><button class="gBtn" onclick="ward2Home()">← 值班室</button></div>';
@@ -14601,7 +14739,7 @@ function ward2Finish(){
   if(!P.ward.s[0] || P.ward.s[0] < stars) P.ward.s[0] = stars;
   gProgSave(P);
   var h = '<div class="gDocBar"><button class="gBtn" onclick="ward2Home()">↻ 再值一晚</button></div>';
-  h += '<div class="gReport"><h4>晨光 · 交班结束<span class="gStamp ' + (stars === 3 ? "good" : stars >= 1 ? "mid" : "bad") + '">' + gStarStr(stars) + " " + score + " 分</span></h4>";
+  h += '<div class="gReport"><h4>晨光 · 交班结束<span class="gStamp ' + (stars === 3 ? "good" : stars >= 1 ? "mid" : "bad") + '"><span>' + gStarAnim(stars) + "</span> " + score + " 分</span></h4>";
   h += "<p><b>患者安全</b> " + safeDone + "/" + safeTotal + "（55%） · <b>交接完整</b> " + ward2.ho.length + "/3（25%） · <b>任务执行</b> " + ward2.used + " 项（20%）</p>";
   if(fatal) h += '<div class="gWrong" style="border-color:#f87171">⛔ 一票否决：赵明远的首份心电图未在时限内完成——再灌注延迟直接转化为心肌坏死面积。结局判定为不良事件。</div>';
   h += "</div>";
@@ -14619,6 +14757,8 @@ function ward2Finish(){
   h += '<div class="blk"><h4><span class="hIco">📖</span>本晚教学锚点</h4><ul><li>李秀兰的 5L/min 氧流量：COPD 控制性氧疗（目标 SpO₂ 88-92%）</li><li>张守义：先留标本再用药；CURB-65 定监测强度</li><li>王建军：动态 cTn 的价值在于变化，不在单次值</li><li>陈慧敏：血糖 13.9 切换含糖液但不停泵——血糖达标≠DKA 缓解</li><li>刘凤霞：「结果未回报」≠「结果正常」</li><li>周国栋：沟通的紧迫度不等于生理的紧迫度，但一样不能漏</li></ul></div>';
   h += '<p class="gIntro">⚠️ 全部为教学虚构病例；时限与阈值依《内科学》通行教学表述，需临床教师复核。</p>';
   $("#shBody").innerHTML = h;
+  gFxPulse(stars >= 2 ? "ok" : "bad");
+  gFxVibrate(stars >= 2 ? 60 : 90);
   addExp(8);
 }
 
@@ -14670,7 +14810,7 @@ function cons2Start(){
   cons2.t = 0; cons2.glu = 33.3; cons2.k = 5.2; cons2.na = 132; cons2.hco3 = 8; cons2.ph = 7.15; cons2.ag = 30;
   cons2.vol = 1; cons2.fluid = 0; cons2.insulin = false; cons2.ksup = false; cons2.gs = false; cons2.bic = false;
   cons2.trend = [[33.3, 5.2, 7.15]]; cons2.events = []; cons2.over = false; cons2.win = false;
-  cons2.kKnown = false; cons2.minK = 9; cons2.badSlope = 0;
+  cons2.kKnown = false; cons2.minK = 9; cons2.badSlope = 0; cons2.prev = null;
   cons2Render("接管患者。先做什么？——提示：他的循环里缺 6 升水，但血钾 5.2 是假象。");
 }
 function cons2Gauge(v, lo, hi){
@@ -14684,12 +14824,12 @@ function cons2Render(note){
     + "</div>";
   /* 仪表盘 */
   h += '<div class="gDash">';
-  h += '<div class="gGauge ' + cons2Gauge(c.glu, 4, 11.1) + '"><b>血糖</b><span>' + c.glu.toFixed(1) + '</span><em>mmol/L</em></div>';
-  h += '<div class="gGauge ' + cons2Gauge(c.k, 3.5, 5.3) + '"><b>血钾</b><span>' + c.k.toFixed(1) + '</span><em>mmol/L</em></div>';
-  h += '<div class="gGauge ' + cons2Gauge(c.ph, 7.3, 7.45) + '"><b>pH</b><span>' + c.ph.toFixed(2) + '</span><em>7.35-7.45</em></div>';
-  h += '<div class="gGauge ' + cons2Gauge(c.hco3, 18, 26) + '"><b>HCO₃⁻</b><span>' + c.hco3.toFixed(1) + '</span><em>mmol/L</em></div>';
-  h += '<div class="gGauge ' + cons2Gauge(c.ag, 8, 12) + '"><b>AG</b><span>' + c.ag.toFixed(0) + '</span><em>8-12</em></div>';
-  h += '<div class="gGauge ' + (c.vol <= 3 ? "c-low" : c.vol > 8 ? "c-high" : "c-ok") + '"><b>容量</b><span>' + c.vol.toFixed(1) + '</span><em>升（缺6）</em></div>';
+  h += '<div class="gGauge ' + cons2Gauge(c.glu, 4, 11.1) + '"><b>血糖</b><span id="cGlu">' + c.glu.toFixed(1) + '</span><em>mmol/L</em></div>';
+  h += '<div class="gGauge ' + cons2Gauge(c.k, 3.5, 5.3) + '"><b>血钾</b><span id="cK">' + c.k.toFixed(1) + '</span><em>mmol/L</em></div>';
+  h += '<div class="gGauge ' + cons2Gauge(c.ph, 7.3, 7.45) + '"><b>pH</b><span id="cPh">' + c.ph.toFixed(2) + '</span><em>7.35-7.45</em></div>';
+  h += '<div class="gGauge ' + cons2Gauge(c.hco3, 18, 26) + '"><b>HCO₃⁻</b><span id="cHco">' + c.hco3.toFixed(1) + '</span><em>mmol/L</em></div>';
+  h += '<div class="gGauge ' + cons2Gauge(c.ag, 8, 12) + '"><b>AG</b><span id="cAg">' + c.ag.toFixed(0) + '</span><em>8-12</em></div>';
+  h += '<div class="gGauge ' + (c.vol <= 3 ? "c-low" : c.vol > 8 ? "c-high" : "c-ok") + '"><b>容量</b><span id="cVol">' + c.vol.toFixed(1) + '</span><em>升（缺6）</em></div>';
   h += "</div>";
   /* 趋势条 */
   h += '<div class="gTrend">';
@@ -14725,6 +14865,16 @@ function cons2Render(note){
   h += "</ul><p class=\"gIntro\">⚠️ 教学近似模拟，参数经简化；实际补液/胰岛素/补钾方案需临床教师复核，不得作为真实决策依据。</p></div>";
   openSheet("🎛️ DKA · T+" + c.t + " h", "教学近似模拟 · 场景 A");
   $("#shBody").innerHTML = h;
+  /* 数字补间：新值从上一小时滚动而来 */
+  if(c.prev){
+    gTweenNum(document.getElementById("cGlu"), c.prev.glu, c.glu, 480, 1);
+    gTweenNum(document.getElementById("cK"), c.prev.k, c.k, 480, 1);
+    gTweenNum(document.getElementById("cPh"), c.prev.ph, c.ph, 480, 2);
+    gTweenNum(document.getElementById("cHco"), c.prev.hco3, c.hco3, 480, 1);
+    gTweenNum(document.getElementById("cAg"), c.prev.ag, c.ag, 480, 0);
+    gTweenNum(document.getElementById("cVol"), c.prev.vol, c.vol, 480, 1);
+  }
+  c.prev = {glu:c.glu, k:c.k, ph:c.ph, hco3:c.hco3, ag:c.ag, vol:c.vol};
 }
 function cons2Fluid(rate){
   if(cons2.over) return;
@@ -14737,15 +14887,18 @@ function cons2Insulin(){
   if(cons2.insulin){ toast("泵已在运行——调整思路，不是重复按钮"); return; }
   if(!cons2.kKnown || cons2.k < 3.3){
     cons2.events.push("🚨 严重不良事件：血钾未知或 <3.3 即启动胰岛素——钾向细胞内转移，严重低钾/心律失常。本关最严重的单一错误。");
+    gFxPulse("bad"); gFxVibrate(120); gFxShake(".gDash");
     cFinish(true);
     return;
   }
   if(cons2.vol < 3){
     cons2.events.push("🚨 严重不良事件：循环未复苏（容量 <3L）即泵胰岛素——组织灌注进一步恶化。补液先行！");
+    gFxPulse("bad"); gFxVibrate(120); gFxShake(".gDash");
     cFinish(true);
     return;
   }
   cons2.insulin = true;
+  gFxVibrate(40); gFxFloat("💉 泵启动 · 血钾从此开始下降", "info");
   cons2Render("胰岛素泵启动（前置条件全部满足：血钾已知 ≥3.3 ✓ 容量已复苏 ✓）。酮体清除轨道开启——但血钾从此刻起会持续下降。");
 }
 function cons2K(){
@@ -14763,6 +14916,7 @@ function cons2Bic(){
   if(cons2.ph >= 7.1){
     cons2.events.push("⚠️ 过早补碱（pH " + cons2.ph.toFixed(2) + " ≥7.1）：中枢酸中毒反跳、低钾加重、氧离曲线左移。扣分并记录。");
     cons2.bic = true;
+    gFxFloat("⚠️ 过早补碱 · 扣分", "bad"); gFxVibrate(60); gFxShake(".gDash");
   } else {
     cons2.hco3 += 3;
     cons2.events.push("pH<7.1：补碱指征成立，缓慢滴注后复查血气——不追求纠正到正常。");
@@ -14788,7 +14942,7 @@ function cons2Tick(){
   c.glu = Math.max(3.5, c.glu - slope);
   if(slope > 6.1) c.badSlope++;
   else c.badSlope = 0;
-  if(c.badSlope >= 2){ c.events.push("🚨 中度不良事件：血糖下降 >6.1 mmol/L/h 连续 2 小时——脑水肿风险（儿童尤其）。"); c.bic = true; }
+  if(c.badSlope >= 2){ c.events.push("🚨 中度不良事件：血糖下降 >6.1 mmol/L/h 连续 2 小时——脑水肿风险（儿童尤其）。"); c.bic = true; gFxPulse("bad"); gFxVibrate(90); gFxFloat("🚨 降糖过快 · 脑水肿风险", "bad"); }
   /* 血钾 */
   if(c.insulin){
     var kdrop = c.ksup ? 0.9 : 1.8;
@@ -14796,6 +14950,7 @@ function cons2Tick(){
     if(c.ksup && c.k < 3.8) c.k = Math.min(4.2, c.k + 0.9);  /* 补钾跟得上：低钾前先回补 */
     if(c.k < 3.0){
       c.events.push("🚨 严重不良事件：血钾 " + c.k.toFixed(1) + "——未同步补钾，低钾心律失常。");
+      gFxPulse("bad"); gFxVibrate(120); gFxShake(".gDash");
       cFinish(true);
       return;
     }
@@ -14834,7 +14989,7 @@ function cFinish(dead){
   if(!P.cons.s[0] || P.cons.s[0] < stars) P.cons.s[0] = stars;
   gProgSave(P);
   var h = '<div class="gDocBar"><button class="gBtn" onclick="cons2Home()">← 控制台列表</button></div>';
-  h += '<div class="gReport"><h4>' + (c.win ? "缓解达成" : "模拟结束") + ' · T+' + c.t + 'h<span class="gStamp ' + (stars === 3 ? "good" : stars >= 1 ? "mid" : "bad") + '">' + (c.win ? "缓解 " : "未缓解 ") + gStarStr(stars) + "</span></h4>";
+  h += '<div class="gReport"><h4>' + (c.win ? "缓解达成" : "模拟结束") + ' · T+' + c.t + 'h<span class="gStamp ' + (stars === 3 ? "good" : stars >= 1 ? "mid" : "bad") + '">' + (c.win ? "缓解 " : "未缓解 ") + gStarAnim(stars) + "</span></h4>";
   h += "<p><b>得分 " + pts + "</b>（缓解 50 + 钾管理 15 + 补液档位 10 + 未误补碱 10 + 先查钾 5）</p>";
   h += "<p>终态：血糖 " + c.glu.toFixed(1) + " ｜ K " + c.k.toFixed(1) + " ｜ pH " + c.ph.toFixed(2) + " ｜ HCO₃ " + c.hco3.toFixed(1) + " ｜ AG " + c.ag.toFixed(0) + "</p></div>";
   if(c.events.length){
@@ -14843,6 +14998,8 @@ function cFinish(dead){
   h += '<div class="blk"><h4><span class="hIco">🧠</span>固定四问</h4><ul><li>短期指标改善 = 病因解决了吗？——血糖正常≠酮症清除</li><li>你纠正的速度安全吗？——血糖斜率与补钠速度都有上限</li><li>哪个操作改变了最多变量？——胰岛素：同时动血糖、血钾、酮体</li><li>如果重来，第一小时你会做什么？——补液 + 先知道血钾</li></ul></div>';
   h += '<p class="gIntro">⚠️ 教学近似模拟；所有阈值（K≥3.3、血糖<13.9 切换、pH<7.1 补碱）依通行教学表述编写，需临床教师复核。</p>';
   $("#shBody").innerHTML = h;
+  gFxPulse(c.win ? "ok" : "bad");
+  gFxVibrate(c.win ? 70 : 100);
   addExp(8);
 }
 
@@ -15058,7 +15215,7 @@ function night2Map(){
   if(doneThis >= need && li < 5){
     h += '<div class="gTalkCtl" style="justify-content:center"><button class="gBtn pri" onclick="night2NextLayer()">⏭ 进入下一层（未选节点转入后台队列）</button></div>';
   }
-  if(night2.queue.length) h += '<div class="gHint">📦 后台队列：' + night2.queue.length + " 个节点在暗中推进——它们会回来的。</div>";
+  if(night2.queue.length) h += '<div class="gHint">📦 后台队列：' + gBadge(night2.queue.length + " 个节点在暗中推进——它们会回来的", true) + "</div>";
   openSheet("🌙 夜班 · " + night2LayerName(li), "信息永远不完整");
   $("#shBody").innerHTML = h;
 }
@@ -15088,7 +15245,8 @@ function night2Opt(i){
   night2.path.push(nd.id);
   var li = night2NodeLayer(nd.id);
   if(night2.picks[li] != null) night2.picks[li]++;
-  if(o.good) night2.score += 12;
+  if(o.good){ night2.score += 12; gFxFloat("✅ 关键决策命中 +12", "good"); gFxVibrate(26); }
+  else { gFxFloat("❌ 决策复盘 · 代价后置", "bad"); gFxVibrate(55); gFxShake(".gPStage2"); }
   var optsBox = document.getElementById("gNightFb");
   var h = '<div class="' + (o.good ? "gExplain" : "gWrong") + '"><b>' + (o.good ? "✅ 关键决策命中" : "❌ 决策复盘") + '</b><p>' + gEsc(o.fb) + "</p>";
   h += '<p class="gIntro">未选节点已转入后台队列——你没做的事不会自动消失。</p>';
@@ -15117,9 +15275,14 @@ function night2Boss(){
     return;
   }
   var st = steps[night2.bossStep - 1];
+  var bpTop = Math.max(60, 96 - night2.bossStep * 6 + night2.bossOk * 4);
+  var bpBot = Math.max(40, 60 - night2.bossStep * 3);
+  var bpCls = bpTop < 70 ? " crit" : bpTop < 85 ? " warn" : "";
+  var bpPct = Math.max(8, Math.min(100, (bpTop - 45) / 55 * 100));
   var h = '<div class="gDocBar"><button class="gBtn" onclick="night2Home()">← 放弃</button>'
     + '<span class="gBtn" style="border:none;cursor:default">CDP ' + night2.bossStep + "/6</span>"
-    + '<span class="gBtn" style="border:none;cursor:default">BP ' + Math.max(60, 96 - night2.bossStep * 6 + night2.bossOk * 4) + "/" + Math.max(40, 60 - night2.bossStep * 3) + "</span></div>";
+    + '<span class="gBtn" style="border:none;cursor:default">连锁 ×' + night2.bossOk + "</span></div>";
+  h += '<div class="gBPWrap"><div class="gBP' + bpCls + '" style="width:' + bpPct + '%"></div><b>BP ' + bpTop + "/" + bpBot + ' mmHg</b></div>';
   h += '<div class="gPStage2"><div class="gSpeech"><span class="gWho">⚡ Boss · 张力气胸</span>' + gEsc(st.q) + "</div></div>";
   h += '<div class="blk">';
   st.opts.forEach(function(o, i){
@@ -15134,7 +15297,8 @@ function night2BossAns(i){
   var steps = night2BossSteps();
   var st = steps[night2.bossStep - 1];
   var ok = i === st.good;
-  if(ok) night2.bossOk++;
+  if(ok){ night2.bossOk++; gFxFloat("✅ CDP 命中 · 血压回升", "good"); gFxVibrate(30); }
+  else { gFxFloat("❌ 延误 · 血压继续掉", "bad"); gFxVibrate(80); gFxShake(".gBPWrap"); gFxPulse("bad"); }
   night2.bossFb.push({q:st.q, ok:ok, fb:st.fb});
   var box = document.getElementById("gNightFb");
   var h = '<div class="' + (ok ? "gExplain" : "gWrong") + '"><b>' + (ok ? "✅ CDP 命中" : "❌ 延误的代价") + '</b><p>' + gEsc(st.fb) + "</p>";
@@ -15162,11 +15326,13 @@ function night2Finish(){
   if(!P.night.s[0] || P.night.s[0] < stars) P.night.s[0] = stars;
   gProgSave(P);
   var h = '<div class="gDocBar"><button class="gBtn" onclick="night2Home()">↻ 再值一晚（每夜病例随机生成）</button></div>';
-  h += '<div class="gReport"><h4>晨光 · 夜班结束<span class="gStamp ' + (stars === 3 ? "good" : stars >= 1 ? "mid" : "bad") + '">' + gStarStr(stars) + " " + score + " 分</span></h4>";
-  h += "<p><b>四张卡</b>（结构化复盘）：决策命中 " + night2.score + " ｜ Boss CDP " + night2.bossOk + "/6 ｜ 剩余时间预算 " + night2.budget + " min ｜ 精力 " + night2.energy + "/85</p></div>";
+  h += '<div class="gReport"><h4>晨光 · 夜班结束<span class="gStamp ' + (stars === 3 ? "good" : stars >= 1 ? "mid" : "bad") + '"><span>' + gStarAnim(stars) + "</span> " + score + " 分</span></h4>";
+  h += "<p><b>四张卡</b>（结构化复盘）：决策命中 " + night2.score + " ｜ Boss CDP " + night2.bossOk + "/6 " + gChainBadge(night2.bossOk) + " ｜ 剩余时间预算 " + night2.budget + " min ｜ 精力 " + night2.energy + "/85</p></div>";
   h += '<div class="blk"><h4><span class="hIco">📦</span>后台队列回归清单</h4><p>' + (night2.queue.length ? "以下节点你没有走到——它们都在深夜以恶化形态回来过：" + gEsc(night2.queue.join("、")) : "本层全清——但真实的夜班永远有第 9 个节点。") + "</p></div>";
   h += '<div class="blk"><h4><span class="hIco">📖</span>本夜教学锚点</h4><ul><li>张力性气胸是临床诊断——唯一一次明确要求不等检查</li><li>『继续观察』必须带参数：观察什么、多久看一次、什么情况叫我</li><li>U×T 四象限：不知道是什么但要出事=保护性处理+针对可逆病因+求助并行</li><li>偏晚求助的惩罚是偏早的 4 倍——规培阶段宁愿叫得勤</li><li>夜班的终点是晨交班，不是打赢危重病例</li></ul></div>';
   $("#shBody").innerHTML = h;
+  gFxPulse(stars >= 2 ? "ok" : "bad");
+  gFxVibrate(stars >= 2 ? 60 : 90);
   addExp(10);
 }
 
@@ -15190,7 +15356,7 @@ GAME_META.forEach(function(m){
 /* ---------- 列表 v3：8 款全部可玩 ---------- */
 function gRenderList2(){
   var P = gProg();
-  var h = '<div class="gIntro">🎮 <b>8 款医学教育游戏 · 全部可玩</b> · 先是游戏，才是医学。v6.6：住院总之夜升级为每夜病例随机生成（名单/床位/节点顺序）。</div>';
+  var h = '<div class="gIntro">🎮 <b>8 款医学教育游戏 · 全部可玩</b> · 先是游戏，才是医学。v6.7：互动反馈引擎上线——飘字/抖动/全屏脉冲/触觉/星级逐点点亮；卡牌新增规范连锁 12 组与换牌，控制台数字滚动，Boss 战血压条。</div>';
   GAME_META.forEach(function(m, i){
     var stars = 0;
     if(m.play === "det"){ stars = ((P.det||{}).s||[]).reduce(function(a,b){ return a + (b||0); }, 0); }
