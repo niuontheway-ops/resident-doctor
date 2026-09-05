@@ -157,7 +157,7 @@
   #speaker.narr{background:var(--ink-soft);}
   #dlg-text{flex:1;font-size:15px;line-height:1.62;min-height:42px;}
   #dlg-hint{font-size:11px;color:var(--ink-soft);text-align:right;font-style:italic;margin-top:2px;}
-  #action-bar{display:flex;justify-content:flex-end;gap:8px;margin-top:6px;flex-wrap:wrap;}
+  #action-bar{position:absolute;left:2.2%;bottom:2.6%;z-index:11;display:flex;justify-content:flex-start;gap:8px;flex-wrap:wrap;max-width:46%;}
   .btn{
     font-family:inherit;font-size:14px;font-weight:bold;
     background:var(--ink);color:var(--paper);
@@ -379,8 +379,9 @@
           <div id="dlg-text" data-page-node-id="pzEGJIe88d3aglJ844hNrM"></div>
         </div>
         <div id="dlg-hint" style="visibility:hidden;" data-page-node-id="VUjwLnXuGKp2y1C79u7b4Z">▼ 点击对话框继续</div>
-        <div id="action-bar" data-page-node-id="tKVtudRGwGN6XNUcrUejPJ"></div>
       </div>
+
+      <div id="action-bar" data-page-node-id="tKVtudRGwGN6XNUcrUejPJ"></div>
 
       <div id="toast" data-page-node-id="5NOIKV8dQCyqjkrwlZFPJb"></div>
     </div>
@@ -515,7 +516,7 @@ const CASES = [
       {sp:"patient",t:"医生，我三天前淋了雨，回来就浑身发冷……昨天夜里突然打寒战，一量体温 39.5℃。一直咳嗽，痰今天是铁锈色的；右下胸这里一吸气就像刀扎一样疼，还心慌、闷得慌。"},
       {sp:"narr",   t:"主诉：发热、咳嗽、咳铁锈色痰伴右下胸痛 3 天。现病史与伴随症状已记录入案卷。"},
       {sp:"holmes", t:"铁锈色痰——有意思的证词。华生，别急着下结论。证据要自己去找：把听诊器放到该放的地方去。"},
-      {sp:"holmes", t:"他胸前有四处听诊点在发光。第一次点击先听，第二次点击判断是什么声音。"}
+      {sp:"holmes", t:"华生，问诊到此，取证的工具是听诊器。按下「开始听诊」——第一次点击先听，第二次点击判断是什么声音。"}
     ],
     f1b:[
       {sp:"holmes", t:"很好，四份声音证词都收齐了。汇总：右下肺——支气管呼吸音；右腋侧——密集细湿啰音；左上肺与心尖部——正常。"},
@@ -625,7 +626,7 @@ const CASES = [
       {sp:"patient",t:"医生……我这口气……上……上不来……痰……咳不完……"},
       {sp:"narr",   t:"呼吸 28 次/分，SpO₂ 85%（未吸氧）。桶状胸，肋间隙增宽，叩诊双肺过清音。主诉与现病史已入案卷。"},
       {sp:"holmes", t:"桶状胸、过清音——胸廓已经被肺「撑」成了圆桶。华生，把听诊器用上，重点听他的呼气——"},
-      {sp:"holmes", t:"四个听诊点在发光。第一次点击先听，第二次点击告诉我：你听到了什么。"}
+      {sp:"holmes", t:"华生，按下「开始听诊」。四个听诊点——第一次点击先听，第二次点击告诉我：你听到了什么。"}
     ],
     f1b:[
       {sp:"holmes", t:"汇总：右肺低调干啰音（鼾音）＋右下粗湿啰音；左肺满布高调哮鸣音，呼气相拖长；心尖心律齐但心音遥远。"},
@@ -2037,12 +2038,22 @@ function goCase(ci){
   closeAllOverlays();
   document.getElementById("hud-case").textContent=cs.no+" · "+cs.name+"（"+cs.disease+"）";
   document.getElementById("dossier-list").innerHTML='<div class="d-item">（暂无证据，快去听诊病人）</div>';
-  renderHotspots();
   fitStage();
   snapTo(1);
   setTimeout(()=>speak(cs.lines.f1, ()=>{
-    setAction("🩺 开始听诊（点击病床上发光的听诊点）", ()=>{ showToast("第一次点击听声音，第二次点击辨别声音"); }, "");
+    /* 旁白结束：对话框退场，只留「开始听诊」按钮 */
+    bubble.classList.remove("show");
+    curLines=null;
+    hsLayer.innerHTML="";
+    setAction("🩺 开始听诊", startAuscultation, "red");
   }),700);
+}
+/* 点击「开始听诊」：按钮退场，听诊点亮起，进入纯听诊阶段 */
+function startAuscultation(){
+  actionBar.innerHTML="";
+  renderHotspots();
+  showToast("🩺 第一次点击：听声音；第二次点击：辨别这是什么声音");
+  beep(760,0.05,"square",0.05);
 }
 
 /* ============ 案卷 / 静音 / 入口 ============ */
