@@ -1645,13 +1645,45 @@ function flatlineTone(){
 
 /* ============ 听诊音播放（真实录音） ============ */
 let auscAudio=null;
+const auscPool={}; // 音频池：每文件一个元素，保留已解码缓冲，点击即播
+/* 在用户手势内解锁浏览器音频策略：播一段不可闻的静音音频（anullsrc 生成） */
+function unlockAudio(){
+  try{
+    const u=new Audio(AUDIO_BASE+"silent.mp3");
+    u.volume=0.01; u.muted=false;
+    const p=u.play();
+    if(p&&p.catch) p.catch(()=>{});
+  }catch(e){}
+}
 function playAusc(file){
   try{
-    if(auscAudio){ auscAudio.pause(); auscAudio.currentTime=0; }
-    auscAudio = new Audio(AUDIO_BASE+file);
-    auscAudio.volume = 0.9;
-    auscAudio.muted = S.muted;
-    auscAudio.play().catch(()=>{ showToast("⚠ 浏览器拦截了音频，请再点一次或检查网络"); });
+    if(!auscPool[file]){
+      const a=new Audio(AUDIO_BASE+file);
+      a.preload="auto";
+      auscPool[file]=a;
+    }
+    const a=auscPool[file];
+    if(auscAudio && auscAudio!==a){ try{ auscAudio.pause(); }catch(e){} } // 切换部位时停掉上一个声音
+    a.volume=0.9;
+    a.muted=S.muted;
+    try{ a.currentTime=0; }catch(e){}
+    auscAudio=a;
+    const p=a.play();
+    if(p&&p.catch) p.catch(err=>{
+      /* 自动重试一次（瞬时激活可能已过期） */
+      setTimeout(()=>{
+        try{
+          const r=a.play();
+          if(r&&r.catch) r.catch(()=>{
+            if(err&&err.name==="NotAllowedError"){
+              showToast("🔇 音频被浏览器拦了一下——再点一次这个听诊点就能播放");
+            }else{
+              showToast("⚠ 音频加载失败："+file+"（检查网络后重试）");
+            }
+          });
+        }catch(e){}
+      },250);
+    });
   }catch(e){}
 }
 
@@ -2054,6 +2086,12 @@ function goCase(ci){
 function startAuscultation(){
   actionBar.innerHTML="";
   renderHotspots();
+  unlockAudio(); // 手势内解锁音频策略（静音音频，不可闻）
+  C().hotspots.forEach(h=>{ // 预加载本案全部听诊音，点击零延迟
+    try{
+      if(!auscPool[h.sound]){ const a=new Audio(AUDIO_BASE+h.sound); a.preload="auto"; a.load(); auscPool[h.sound]=a; }
+    }catch(e){}
+  });
   showToast("🩺 第一次点击：听声音；第二次点击：辨别这是什么声音");
   beep(760,0.05,"square",0.05);
 }
@@ -2076,6 +2114,7 @@ document.getElementById("btn-mute").onclick=function(){
 document.getElementById("hud-logo").onclick=openSelect;
 document.getElementById("btn-start").onclick=()=>{
   beep(523,0.07,"square",0.06);
+  unlockAudio(); // 首次手势即解锁音频策略
   document.getElementById("ov-title").classList.remove("show");
   openSelect();
 };
