@@ -1646,6 +1646,7 @@ function flatlineTone(){
 /* ============ 听诊音播放（真实录音） ============ */
 let auscAudio=null;
 const auscPool={}; // 音频池：每文件一个元素，保留已解码缓冲，点击即播
+let audioWarned=false; // 音频不可用的原因每会话只提示一次，避免刷屏
 /* 在用户手势内解锁浏览器音频策略：播一段不可闻的静音音频（anullsrc 生成） */
 function unlockAudio(){
   try{
@@ -1670,19 +1671,31 @@ function playAusc(file){
     auscAudio=a;
     const p=a.play();
     if(p&&p.catch) p.catch(err=>{
-      /* 自动重试一次（瞬时激活可能已过期） */
-      setTimeout(()=>{
-        try{
-          const r=a.play();
-          if(r&&r.catch) r.catch(()=>{
-            if(err&&err.name==="NotAllowedError"){
-              showToast("🔇 音频被浏览器拦了一下——再点一次这个听诊点就能播放");
-            }else{
-              showToast("⚠ 音频加载失败："+file+"（检查网络后重试）");
-            }
-          });
-        }catch(e){}
-      },250);
+      const n=err&&err.name;
+      /* 播放被新点击打断（AbortError）属正常：不提示、不重放 */
+      if(n==="AbortError") return;
+      /* 自动播放策略拦截：仅在真正被拦时重试一次 */
+      if(n==="NotAllowedError"){
+        setTimeout(()=>{
+          try{
+            const r=a.play();
+            if(r&&r.catch) r.catch(()=>showToast("🔇 音频被浏览器拦了一下——再点一次这个听诊点即可播放"));
+          }catch(e){}
+        },250);
+        return;
+      }
+      /* 其他错误：实测文件是否真的取不到，给出确切原因（每会话只提示一次） */
+      if(audioWarned) return;
+      audioWarned=true;
+      try{
+        fetch(AUDIO_BASE+file,{headers:{Range:"bytes=0-1"}}).then(r=>{
+          if(!r.ok){
+            showToast("⚠ 当前环境未提供 audio/ 目录（"+file+" 取不到）——线上版与离线包均正常，请用 GitHub Pages 或解压后的离线包打开");
+          }else{
+            showToast("⚠ 音频文件已就绪但浏览器解码失败："+file);
+          }
+        }).catch(()=>showToast("⚠ 音频加载失败："+file+"（网络或本地路径问题）"));
+      }catch(e){}
     });
   }catch(e){}
 }
