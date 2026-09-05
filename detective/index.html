@@ -1,0 +1,1314 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page-node-id="ByFeHsh7HZsVV3oin0HEo7">
+<head data-page-node-id="0FFXDoqCsr5GtTU2o60FFB">
+<meta charset="UTF-8" data-page-node-id="ODcDb8Q9ub4am8ArKHIxqH">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" data-page-node-id="yerPR3C9BHInVYnRiSAyA5">
+<title>内科侦探所 · 呼吸病学系列（《内科学》第10版）</title>
+<style>
+  :root{
+    --paper:#e8dcc3;
+    --ink:#3a2f24;
+    --ink-soft:#6b5d4a;
+    --red:#a63a2b;
+    --green:#4a6b3a;
+    --gold:#c9a227;
+    --coat:#5a5648;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    background:#171008;
+    font-family:"Noto Serif SC","STSong","SimSun","Songti SC",serif;
+    color:var(--ink);
+    overflow:hidden;
+    user-select:none;
+  }
+  #app{
+    height:100%;
+    max-width:1100px;
+    margin:0 auto;
+    display:flex;
+    flex-direction:column;
+    position:relative;
+    box-shadow:0 0 60px rgba(0,0,0,.8);
+    background:#0d0a06;
+    overflow:hidden;
+  }
+  /* ================= HUD ================= */
+  #hud{
+    display:flex;align-items:center;gap:10px;
+    padding:8px 14px;
+    background:var(--ink);
+    color:var(--paper);
+    flex:0 0 auto;
+    position:relative;z-index:30;
+  }
+  #hud .logo{font-weight:900;font-size:16px;letter-spacing:2px;color:var(--gold);white-space:nowrap;cursor:pointer;}
+  #hud .case-name{font-size:12px;color:#cbbb95;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  #filmstrip{margin-left:auto;display:flex;gap:4px;align-items:center;}
+  #filmstrip .cell{
+    width:32px;height:24px;border:1px solid #6b5d4a;background:#241c12;
+    color:#8a7a5c;font-size:10px;display:flex;align-items:center;justify-content:center;
+    font-family:monospace;
+  }
+  #filmstrip .cell.cur{background:var(--gold);color:#241c12;font-weight:bold;animation:cellblink .4s steps(2) infinite;}
+  @keyframes cellblink{50%{filter:brightness(.75);}}
+  #hud .stars{font-size:14px;letter-spacing:1px;color:var(--gold);white-space:nowrap;}
+  #btn-dossier{
+    background:var(--red);color:#f4ead2;border:1px solid #7c2a1f;
+    font-family:inherit;font-size:12px;padding:4px 10px;cursor:pointer;white-space:nowrap;
+  }
+  #btn-dossier:active{transform:translateY(1px);}
+  #btn-mute{background:none;border:1px solid #6b5d4a;color:#cbbb95;font-size:12px;padding:4px 8px;cursor:pointer;}
+
+  /* ================= SCENE ================= */
+  #scene-wrap{
+    flex:1 1 auto;min-height:0;position:relative;overflow:hidden;
+    background:#0d0a06;
+    display:flex;align-items:center;justify-content:center;
+  }
+  #stage{position:relative;}
+  #bg{
+    width:100%;height:100%;display:block;
+    animation:bgjit .6s steps(2) infinite;
+  }
+  @keyframes bgjit{
+    0%{transform:translate(0,0);}
+    50%{transform:translate(.7px,-.5px);}
+    100%{transform:translate(-.5px,.4px);}
+  }
+  /* ---------- auscultation hotspots ---------- */
+  .hs{
+    position:absolute;transform:translate(-50%,-50%);
+    width:38px;height:38px;cursor:pointer;z-index:6;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .hs:hover{z-index:9;}
+  .hs .ring{
+    position:absolute;inset:0;border-radius:50%;
+    border:2.5px solid var(--red);
+    background:rgba(166,58,43,.22);
+    animation:pulse 1.1s steps(2) infinite;
+  }
+  @keyframes pulse{50%{opacity:.4;transform:scale(.92);}}
+  .hs .core{font-size:15px;position:relative;z-index:2;filter:drop-shadow(1px 1px 0 rgba(0,0,0,.5));}
+  .hs .label{
+    position:absolute;bottom:100%;left:50%;transform:translateX(-50%) rotate(-1.5deg);
+    background:var(--paper);border:1.4px solid var(--ink);
+    font-size:11px;font-weight:bold;padding:1px 7px;white-space:nowrap;
+    box-shadow:2px 2px 0 rgba(0,0,0,.35);margin-bottom:3px;
+    pointer-events:none;
+    z-index:-1;
+  }
+  .hs.label-below .label{
+    bottom:auto;top:100%;margin-top:3px;margin-bottom:0;
+  }
+  .hs.listening .ring{border-color:var(--gold);background:rgba(201,162,39,.3);}
+  .hs.done .ring{border-color:var(--green);background:rgba(74,107,58,.25);animation:none;}
+  .hs.playing .ring{border-color:var(--gold);background:rgba(201,162,39,.35);}
+  .hs.playing .core{animation:steth .3s steps(2) infinite;}
+  @keyframes steth{50%{transform:scale(1.25) rotate(-6deg);}}
+
+  /* ---------- dialogue bubble ---------- */
+  #bubble{
+    position:absolute;left:2.2%;right:2.2%;bottom:2.6%;z-index:10;
+    background:var(--paper);
+    border:2.5px solid var(--ink);
+    box-shadow:5px 5px 0 rgba(0,0,0,.45);
+    padding:10px 14px 12px;
+    min-height:96px;
+    display:none;
+    cursor:pointer;
+  }
+  #bubble.show{display:block;}
+  #bubble .tail{
+    position:absolute;top:-16px;right:9%;
+    width:0;height:0;
+    border-left:14px solid transparent;
+    border-right:14px solid transparent;
+    border-bottom:16px solid var(--ink);
+  }
+  #bubble .tail::after{
+    content:"";position:absolute;left:-10.5px;top:3.5px;
+    border-left:10.5px solid transparent;
+    border-right:10.5px solid transparent;
+    border-bottom:12.5px solid var(--paper);
+  }
+  #bubble.pop{animation:bpop .32s steps(3) 1;}
+  @keyframes bpop{
+    0%{transform:scale(.55) rotate(-2.5deg);opacity:0;}
+    60%{transform:scale(1.06) rotate(.6deg);opacity:1;}
+    100%{transform:scale(1) rotate(0);}
+  }
+  #dlg-row{display:flex;gap:10px;align-items:flex-start;}
+  #speaker{
+    flex:0 0 auto;font-size:12px;font-weight:900;letter-spacing:1px;
+    padding:3px 8px;color:var(--paper);background:var(--coat);
+    transform:rotate(-1.5deg);box-shadow:2px 2px 0 rgba(0,0,0,.25);
+    white-space:nowrap;
+  }
+  #speaker.holmes{background:#3f4a5a;}
+  #speaker.watson{background:var(--green);}
+  #speaker.patient{background:var(--red);}
+  #speaker.narr{background:var(--ink-soft);}
+  #dlg-text{flex:1;font-size:15px;line-height:1.62;min-height:42px;}
+  #dlg-hint{font-size:11px;color:var(--ink-soft);text-align:right;font-style:italic;margin-top:2px;}
+  #action-bar{display:flex;justify-content:flex-end;gap:8px;margin-top:6px;flex-wrap:wrap;}
+  .btn{
+    font-family:inherit;font-size:14px;font-weight:bold;
+    background:var(--ink);color:var(--paper);
+    border:none;padding:8px 18px;cursor:pointer;
+    box-shadow:3px 3px 0 rgba(0,0,0,.35);
+    letter-spacing:2px;
+  }
+  .btn:active{transform:translate(2px,2px);box-shadow:1px 1px 0 rgba(0,0,0,.35);}
+  .btn.red{background:var(--red);}
+  .btn.ghost{background:transparent;color:var(--ink);border:1.5px solid var(--ink);box-shadow:none;}
+
+  /* ================= OVERLAYS ================= */
+  .overlay{
+    position:absolute;inset:0;z-index:40;
+    background:rgba(13,9,5,.78);
+    display:none;align-items:center;justify-content:center;
+    padding:14px;
+  }
+  .overlay.show{display:flex;}
+  .sheet{
+    background:var(--paper);border:2.5px solid var(--ink);
+    box-shadow:6px 6px 0 rgba(0,0,0,.5);
+    max-width:640px;width:100%;max-height:94%;
+    overflow-y:auto;padding:18px 20px;
+    position:relative;
+    animation:bpop .3s steps(3) 1;
+  }
+  .sheet h2{font-size:18px;letter-spacing:3px;margin-bottom:4px;}
+  .sheet .sub{font-size:12px;color:var(--ink-soft);margin-bottom:12px;}
+  .close-x{
+    position:absolute;top:8px;right:10px;font-size:16px;
+    background:none;border:none;cursor:pointer;color:var(--ink);
+    font-family:inherit;font-weight:bold;z-index:2;
+  }
+
+  #title-card{text-align:center;padding:20px 8px;}
+  #title-card .big{font-size:32px;font-weight:900;letter-spacing:8px;margin:4px 0 2px;}
+  #title-card .big2{font-size:17px;letter-spacing:4px;color:var(--red);margin-bottom:12px;}
+  #title-card .rule{
+    text-align:left;font-size:13px;line-height:1.85;
+    background:rgba(255,255,255,.4);border:1px dashed var(--ink-soft);
+    padding:10px 14px;margin:10px 0 14px;
+  }
+  .stamp{
+    display:inline-block;border:3px solid var(--red);color:var(--red);
+    font-weight:900;letter-spacing:4px;padding:4px 14px;
+    transform:rotate(-6deg);font-size:15px;margin-bottom:6px;opacity:.85;
+  }
+  .brand-foot{
+    display:flex;align-items:center;justify-content:flex-end;gap:10px;
+    margin-top:16px;padding-top:10px;
+    border-top:1px dashed var(--ink-soft);
+    text-align:right;
+  }
+  .brand-logo{width:34px;height:31px;flex:0 0 auto;}
+  .brand-text .brand-name{
+    font-size:16px;font-weight:900;letter-spacing:3px;color:#6d2f26;
+  }
+  .brand-text .brand-sub{font-size:11px;color:var(--ink-soft);margin-top:1px;}
+
+  /* ---------- case select ---------- */
+  .case-card{
+    display:flex;align-items:center;gap:12px;width:100%;
+    font-family:inherit;text-align:left;
+    background:#f4ecd8;border:2px solid var(--ink);
+    padding:12px 14px;margin-bottom:10px;cursor:pointer;
+    box-shadow:3px 3px 0 rgba(0,0,0,.25);
+  }
+  .case-card:hover{transform:translateY(-2px);background:#fff7e2;}
+  .case-card .c-no{
+    flex:0 0 auto;font-weight:900;color:var(--paper);background:var(--red);
+    padding:6px 8px;font-size:13px;letter-spacing:1px;transform:rotate(-2deg);
+    box-shadow:2px 2px 0 rgba(0,0,0,.3);
+  }
+  .case-card .c-mid{flex:1;min-width:0;}
+  .case-card .c-name{font-size:16px;font-weight:900;letter-spacing:2px;}
+  .case-card .c-dis{font-size:12px;color:var(--ink-soft);margin-top:2px;}
+  .case-card .c-status{flex:0 0 auto;font-size:12px;font-weight:bold;color:var(--green);white-space:nowrap;}
+  .case-card .c-status.todo{color:var(--red);}
+  .locked-title{font-size:13px;letter-spacing:2px;color:var(--ink-soft);margin:14px 0 8px;}
+  #locked-list{display:flex;flex-wrap:wrap;gap:6px;}
+  .locked-chip{
+    font-size:11.5px;color:#a89877;background:rgba(58,47,36,.08);
+    border:1px dashed var(--ink-soft);padding:3px 9px;border-radius:2px;
+  }
+
+  /* ---------- reports ---------- */
+  #reports-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;}
+  @media (max-width:560px){#reports-grid{grid-template-columns:1fr 1fr;gap:8px;}}
+  .rcard{
+    background:#f4ecd8;border:1.5px solid var(--ink);
+    padding:8px;cursor:pointer;position:relative;
+    box-shadow:3px 3px 0 rgba(0,0,0,.25);
+    transition:transform .08s;
+  }
+  .rcard:hover{transform:translateY(-3px) rotate(.4deg);}
+  .rcard svg{width:100%;height:auto;display:block;border:1px solid var(--ink-soft);background:#111;}
+  .rcard img.rimg-thumb{width:100%;height:150px;object-fit:cover;display:block;border:1px solid var(--ink-soft);background:#111;}
+  .rcard .rlabel{font-size:11px;margin-top:6px;text-align:center;letter-spacing:1px;}
+  .rcard.chosen-ok{outline:3px solid var(--green);}
+  .rcard.chosen-bad{outline:3px solid var(--red);animation:shake .3s steps(4) 2;}
+  @keyframes shake{25%{transform:translateX(-4px);}75%{transform:translateX(4px);}}
+
+  .r-detail{font-size:13px;line-height:1.8;}
+  .r-detail .rhead{font-weight:900;font-size:15px;margin-bottom:6px;}
+  .r-detail .rimg{border:1px solid var(--ink);background:#111;margin:8px 0;}
+  .r-detail .rimg svg{width:100%;display:block;}
+  .r-detail .rimg img{width:100%;display:block;background:#111;}
+  .r-detail .rsrc{font-size:10.5px;color:var(--ink-soft);margin-top:4px;line-height:1.5;}
+  .verdict-line{font-size:14px;font-weight:bold;margin-top:10px;min-height:20px;line-height:1.7;}
+
+  /* ---------- quiz ---------- */
+  .quiz-q{font-size:15px;font-weight:bold;margin:4px 0 10px;line-height:1.6;}
+  .opt{
+    display:block;width:100%;text-align:left;font-family:inherit;
+    background:#f4ecd8;border:1.5px solid var(--ink-soft);
+    padding:10px 12px;margin-bottom:8px;font-size:14px;line-height:1.5;
+    cursor:pointer;color:var(--ink);
+  }
+  .opt:hover{border-color:var(--ink);background:#fff7e2;}
+  .opt.pick-ok{background:#dce8d0;border-color:var(--green);font-weight:bold;}
+  .opt.pick-bad{background:#f2d5cf;border-color:var(--red);animation:shake .3s steps(4) 2;}
+  .opt[disabled]{cursor:default;}
+  .fb{font-size:13px;line-height:1.7;background:rgba(255,255,255,.45);border-left:3px solid var(--ink);padding:8px 10px;margin-bottom:8px;}
+
+  /* ---------- dossier ---------- */
+  .d-item{font-size:13px;line-height:1.7;border-bottom:1px dashed var(--ink-soft);padding:8px 0;}
+  .d-item b{color:var(--red);}
+  .d-item .src{display:inline-block;font-size:10px;color:var(--paper);background:var(--ink-soft);padding:1px 6px;margin-left:6px;vertical-align:1px;}
+
+  /* ================= ENDING ================= */
+  #ending-inner{text-align:center;padding:8px;}
+  #ending-title{font-size:25px;font-weight:900;letter-spacing:6px;margin:8px 0;}
+  #ending-title.good{color:var(--green);}
+  #ending-title.bad{color:var(--red);}
+  #ending-ecg{width:100%;max-width:460px;margin:6px auto;display:block;background:#0d0d0d;border:1px solid var(--ink);}
+  #ending-stars{font-size:26px;letter-spacing:6px;margin:6px 0;color:var(--gold);}
+  #ending-text{font-size:14px;line-height:1.9;text-align:left;margin:10px auto;max-width:520px;}
+  .review{font-size:12.5px;line-height:1.85;text-align:left;background:rgba(255,255,255,.45);border:1px dashed var(--ink-soft);padding:10px 14px;margin:12px auto;max-width:560px;}
+  .review h3{font-size:14px;margin-bottom:6px;letter-spacing:2px;}
+  .review li{margin-left:18px;margin-bottom:2px;}
+  #ending-btns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:8px;}
+
+  /* ================= FX ================= */
+  #grain{
+    position:absolute;inset:0;pointer-events:none;z-index:50;opacity:.45;mix-blend-mode:multiply;
+    background-image:
+      radial-gradient(rgba(58,47,36,.13) 1px, transparent 1.4px),
+      radial-gradient(rgba(58,47,36,.09) 1px, transparent 1.4px);
+    background-size:5px 5px,7px 7px;
+    background-position:0 0,3px 4px;
+    animation:grainMove .45s steps(3) infinite;
+  }
+  @keyframes grainMove{
+    0%{background-position:0 0,3px 4px;}
+    33%{background-position:2px 1px,1px 2px;}
+    66%{background-position:1px 3px,4px 0;}
+    100%{background-position:3px 2px,2px 5px;}
+  }
+  #vignette{
+    position:absolute;inset:0;pointer-events:none;z-index:49;
+    background:radial-gradient(ellipse at 50% 42%, transparent 58%, rgba(15,10,5,.42) 100%);
+  }
+  .shutter{
+    position:absolute;left:0;right:0;height:0;background:#171008;z-index:60;
+    pointer-events:none;overflow:hidden;
+    display:flex;align-items:center;justify-content:center;
+    color:var(--gold);font-family:monospace;font-size:20px;letter-spacing:6px;
+  }
+  #shutter.top{top:0;border-bottom:3px solid var(--gold);}
+  #shutter.bot{bottom:0;border-top:3px solid var(--gold);}
+  .shutter-anim-top{animation:shT .55s steps(5) 1;}
+  .shutter-anim-bot{animation:shB .55s steps(5) 1;}
+  @keyframes shT{0%{height:0;}45%{height:50%;}80%{height:50%;}100%{height:0;}}
+  @keyframes shB{0%{height:0;}45%{height:50%;}80%{height:50%;}100%{height:0;}}
+  .frame-no{opacity:0;}
+  #shutter.snapping .frame-no{animation:fnflash .55s steps(1) 1;}
+  @keyframes fnflash{40%{opacity:1;}75%{opacity:1;}76%{opacity:0;}}
+
+  #toast{
+    position:absolute;top:12px;left:50%;transform:translateX(-50%);
+    background:rgba(58,47,36,.95);color:var(--paper);font-size:13px;
+    padding:8px 16px;z-index:35;display:none;
+    box-shadow:3px 3px 0 rgba(0,0,0,.4);letter-spacing:1px;
+    max-width:88%;text-align:center;line-height:1.5;
+  }
+  .fade-in{animation:fin .3s steps(3) 1;}
+  @keyframes fin{0%{opacity:0;}100%{opacity:1;}}
+</style>
+</head>
+<body data-page-node-id="ftzH5FMd4LYA5g8G2S1pRV">
+<div id="app" data-page-node-id="GR7mG3aaFVtTJXP1W1bxMM">
+
+  <!-- HUD -->
+  <div id="hud" data-page-node-id="BgxQVXjWUgMS7x2B1tdlgj">
+    <span class="logo" id="hud-logo" title="返回档案柜" data-page-node-id="tFMvwGezO3KPbL4K5Xzt0P">🔍 内科侦探所</span>
+    <span class="case-name" id="hud-case" data-page-node-id="OAhADGE20tGXoCxnXec7o9">呼吸病学系列 · 《内科学》第10版</span>
+    <span class="stars" id="hud-stars" data-page-node-id="OVAdH2bIkzpY4nUMlqnjrK">☆☆☆☆☆</span>
+    <button id="btn-dossier" data-page-node-id="ARY9nr5o39sfq3cB3WpMV2">案卷</button>
+    <button id="btn-mute" title="音效开关" data-page-node-id="qKfu1q2V9JLHNcq37OddNg">🔊</button>
+    <div id="filmstrip" data-page-node-id="LCVmQI3qTWZJTTN6skO2mN">
+      <div class="cell" data-c="1" data-page-node-id="COlCN547zBhUZKzfh2jf5t">1</div>
+      <div class="cell" data-c="2" data-page-node-id="tGrePXYvTi1HHJuo5SfYSl">2</div>
+      <div class="cell" data-c="3" data-page-node-id="k8HqvgcfSIfRJHIQZBOETa">3</div>
+      <div class="cell" data-c="4" data-page-node-id="lSTzPlK3iDPn0cmUQdo6RV">4</div>
+    </div>
+  </div>
+
+  <!-- SCENE -->
+  <div id="scene-wrap" data-page-node-id="kAuzIZLS3kAT6XZa2V7Jf8">
+    <div id="stage" data-page-node-id="CSBIlCivGq2rOMYjQwE2Rq">
+      <img id="bg" src="bg.jpg" alt="内科侦探所" draggable="false" data-page-node-id="Fl9lREHabJRaF132Bm0hEF">
+      <div id="hotspots" data-page-node-id="64tLYSIKxnvbEXHAOwokrG"></div>
+
+      <div id="bubble" data-page-node-id="w4LpbAgzpA3h7qHfB4xcm4">
+        <div class="tail" data-page-node-id="DmHburqQENKMoBo8OkkMll"></div>
+        <div id="dlg-row" data-page-node-id="O0UBy1xIRcs7sRo0dmAjsk">
+          <span id="speaker" class="holmes" data-page-node-id="HlyS0ebULjhLpe0BaxqjIO">福尔摩斯</span>
+          <div id="dlg-text" data-page-node-id="pzEGJIe88d3aglJ844hNrM"></div>
+        </div>
+        <div id="dlg-hint" style="visibility:hidden;" data-page-node-id="VUjwLnXuGKp2y1C79u7b4Z">▼ 点击对话框继续</div>
+        <div id="action-bar" data-page-node-id="tKVtudRGwGN6XNUcrUejPJ"></div>
+      </div>
+
+      <div id="toast" data-page-node-id="5NOIKV8dQCyqjkrwlZFPJb"></div>
+    </div>
+  </div>
+
+  <!-- OVERLAY: TITLE -->
+  <div class="overlay show" id="ov-title" data-page-node-id="PmFDtw8T1idDSwgrztUREi">
+    <div class="sheet" style="text-align:center;" data-page-node-id="SxIU7XVYAHRZ2oleXWprj0">
+      <div class="stamp" data-page-node-id="HdNd1sagFghACi9LDO2yuH">贝克街 221B · 内科分所</div>
+      <div id="title-card" data-page-node-id="ASXwuGOCmBcHRFA7iCSsc3">
+        <div class="big" data-page-node-id="pB1sFtdbcwZCjA8FnI7sSm">内科侦探所</div>
+        <div class="big2" data-page-node-id="jjdB0gUigMDjqnnquT3Zd2">呼吸病学系列 · 《内科学》第10版</div>
+        <div class="rule" style="text-align:left;" data-page-node-id="TDByjrNlnEB9GR7cchYIgs">
+          <b data-page-node-id="nYTCPr0x4GYgNc5L1YuyKm">致华生医生（你）：</b><br data-page-node-id="OSZVmz5jcTmCwLOS0w7d8Q">
+          ① 每一案是一位新病人。福尔摩斯在对话框里介绍案情，<b data-page-node-id="hyAFCT4k6oOPi5kAHtiCNN">两次点击</b>病床上的听诊点——第一次听声音，第二次判断是什么声音（真实听诊音）。<br data-page-node-id="0AcZYtx5EGnFBODaToZxuJ">
+          ② 档案室里四份报告混在一起，<b data-page-node-id="65eFTdsvFvVXnOuMed7TcN">认出属于这位病人的那一份</b>（真实临床影像）。<br data-page-node-id="8Ru9FTnjvQlCvZEGxYoJQb">
+          ③ 给出<b data-page-node-id="WjWiQw64zvDt2OsFbMQZI8">诊断</b>与<b data-page-node-id="uomKn1oXb4bwDNNkaZYGTU">治疗方案</b>。<br data-page-node-id="UDNqcHkW93WfD0UF66i1AG">
+          ④ 全对，病人转危为安；错了……病人可能撑不过这一夜。<br data-page-node-id="CTZGwVwrK9DzmRCc6uyVEp">
+          <span style="color:var(--ink-soft);font-size:12px;" data-page-node-id="3wRLaC1RxPaZeHENmBWi4I">依据：《内科学》（第10版）· 《诊断学》（第10版）</span>
+        </div>
+        <button class="btn red" id="btn-start" style="font-size:17px;padding:12px 34px;" data-page-node-id="maZhhirkmlDbxYPsCTc2n2">走进档案柜</button>
+      </div>
+      <div class="brand-foot" data-page-node-id="JqQDN2w1lPeL3qitF6Hsue">
+        <svg class="brand-logo" viewBox="0 0 44 40" aria-label="壶兰呼吸" data-page-node-id="hROPWGgwIiGljljkTG2CLH">
+          <path d="M20 6 V16 M20 10 Q16 12 15 18 M20 10 Q24 12 25 18" fill="none" stroke="#6d2f26" stroke-width="2.6" stroke-linecap="round" data-page-node-id="0UA6kuus5rVGCLWkLngKRp"/>
+          <path d="M15 18 Q8 20 7 29 Q6.5 35 11 36 Q16 37 18.5 31 Q20 27 20 22 Z" fill="#a63a2b" opacity=".88" data-page-node-id="1b4lNg0FpxajhkMO0FbbAI"/>
+          <path d="M25 18 Q32 20 33 29 Q33.5 35 29 36 Q24 37 21.5 31 Q20 27 20 22 Z" fill="#c9a227" opacity=".88" data-page-node-id="g1trrMCEQ0SCqQIl4fGZT2"/>
+        </svg>
+        <div class="brand-text" data-page-node-id="ZWFtbX54gCEuVH3n7CYjkM">
+          <div class="brand-name" data-page-node-id="mzYYhhR7NqBXWbFPb1E7vO">壶兰呼吸</div>
+          <div class="brand-sub" data-page-node-id="ztf56lUDjH19spMKxoYPbh">莆田学院附属医院 呼吸与危重症医学科三区 · 老崔</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- OVERLAY: CASE SELECT -->
+  <div class="overlay" id="ov-select" data-page-node-id="5cuMT5XBME0xy3fcw0bI4Z">
+    <div class="sheet" data-page-node-id="QODFW8MEh3ztnakMCJ7FG3">
+      <h2 data-page-node-id="Bf31mAWrLwAmP25LQ1sk6n">🗄 案卷柜 · 呼吸病学系列</h2>
+      <div class="sub" data-page-node-id="oy5HHnACA7APEuSNnJtERH">《内科学》（第10版）呼吸系统疾病 · 每案一病 · 持续归档中</div>
+      <div id="case-list" data-page-node-id="7IoCFskj2lVhlKHSbR7Djq"></div>
+      <div class="locked-title" data-page-node-id="IBxvbNpUQ6BWeBeneq08HF">—— 待归档（下一批开卷）——</div>
+      <div id="locked-list" data-page-node-id="qbRZV2bVtiiLLQpGuP2y5B"></div>
+      <div class="brand-foot" data-page-node-id="SdFbHAuwnyAnlEJLPZxY0V">
+        <svg class="brand-logo" viewBox="0 0 44 40" aria-label="壶兰呼吸" data-page-node-id="BQR88d2vCq3ZQ188xsBlWG">
+          <path d="M20 6 V16 M20 10 Q16 12 15 18 M20 10 Q24 12 25 18" fill="none" stroke="#6d2f26" stroke-width="2.6" stroke-linecap="round" data-page-node-id="ia9NqvwjE1nxHncYqPHDx1"/>
+          <path d="M15 18 Q8 20 7 29 Q6.5 35 11 36 Q16 37 18.5 31 Q20 27 20 22 Z" fill="#a63a2b" opacity=".88" data-page-node-id="urjUyQX1ZnipAXK40Q8wMb"/>
+          <path d="M25 18 Q32 20 33 29 Q33.5 35 29 36 Q24 37 21.5 31 Q20 27 20 22 Z" fill="#c9a227" opacity=".88" data-page-node-id="Ju3eFPun4JhWfSA60D4HAA"/>
+        </svg>
+        <div class="brand-text" data-page-node-id="IaPHpAnkT0HoivSiAP0zPD">
+          <div class="brand-name" data-page-node-id="9nG4ixh2Vcx93yGbJCuZtK">壶兰呼吸</div>
+          <div class="brand-sub" data-page-node-id="iCoIOjUthxSnGI9HOu7zap">莆田学院附属医院 呼吸与危重症医学科三区 · 老崔</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- OVERLAY: DOSSIER -->
+  <div class="overlay" id="ov-dossier" data-page-node-id="qkC8wUjRV14c6APNnYHRcl">
+    <div class="sheet" data-page-node-id="p3qm5voUh4VDqlwyCO1eP8">
+      <button class="close-x" data-close="ov-dossier" data-page-node-id="alJTGbctP3X8nk2viYSotJ">✕</button>
+      <h2 data-page-node-id="GsK1wJvFQe6LF5C0ehRbQe">📋 侦探案卷</h2>
+      <div class="sub" data-page-node-id="mSoGBE2tyLfvHVeeqGP0sP">已收集的证据与教科书出处</div>
+      <div id="dossier-list" data-page-node-id="XlE88Vb2GkKQKPxFnyzjXL"><div class="d-item" data-page-node-id="vrKhDr5yJZ2hfUrEvIWtW7">（暂无证据，快去听诊病人）</div></div>
+    </div>
+  </div>
+
+  <!-- OVERLAY: FRAME2 REPORTS -->
+  <div class="overlay" id="ov-reports" data-page-node-id="4H0Eg6l2dKia0DyN4SvrAR">
+    <div class="sheet" data-page-node-id="LrrC5dDaHdAEiahLbOcXDz">
+      <button class="close-x" data-close="ov-reports" data-page-node-id="VAc6KDtjruSul010pOhaC4">✕</button>
+      <h2 data-page-node-id="W1HnJdtML3kDG59rrZNRqW">🗂 档案室：四份混淆的报告</h2>
+      <div class="sub" id="reports-sub" data-page-node-id="yp4GF5y2FjxPFhKhc6RKMX">点击查看详情，然后认定属于这位病人的那一份。</div>
+      <div id="reports-grid" data-page-node-id="Sv4ifFdF9dJWwYXQl8bBGp"></div>
+      <div class="verdict-line" id="report-verdict" data-page-node-id="rz8vvcBlQQizg3n7s4VKH5"></div>
+    </div>
+  </div>
+
+  <!-- OVERLAY: REPORT DETAIL -->
+  <div class="overlay" id="ov-rdetail" style="z-index:45;" data-page-node-id="YGErfj2avEym9C2HK53QGg">
+    <div class="sheet r-detail" id="rdetail-body" data-page-node-id="8illUE5SoGUjFAOYDFWM6R"></div>
+  </div>
+
+  <!-- OVERLAY: FRAME3 QUIZ -->
+  <div class="overlay" id="ov-quiz" data-page-node-id="XLwnjx2uZ6mO8t2Q35u7K4">
+    <div class="sheet" id="quiz-body" data-page-node-id="tZUcVmIqD2eu7WPmzmW5PA"></div>
+  </div>
+
+  <!-- OVERLAY: ENDING -->
+  <div class="overlay" id="ov-end" data-page-node-id="AGX83v92rSuvwS5cEqIv05">
+    <div class="sheet" id="ending-inner" data-page-node-id="0OJRgiJQUk2GHNweCthHLM"></div>
+  </div>
+
+  <!-- FX -->
+  <div id="grain" data-page-node-id="CiLTw0utDBiwpZXlx5CkmP"></div>
+  <div id="vignette" data-page-node-id="NG3KCwd2ODEHSeJjpJyiED"></div>
+  <div id="shutter" class="shutter top" data-page-node-id="Sc8n7bKNKtBldVVoqQkqk8"><span class="frame-no" data-page-node-id="DkJj8uPKJI9M3WCHQWhRqp"></span></div>
+  <div id="shutter-bot" class="shutter bot" data-page-node-id="PC3sQ8J2S54zlAuNcSkysF"></div>
+</div>
+
+<script>
+/* =========================================================
+   内科侦探所 · 呼吸病学系列
+   音源：壶兰呼吸 App 真实听诊音库（22种真实录音，零合成）
+   影像：壶兰呼吸影像教学库（真实临床影像，本地 img/）
+   ========================================================= */
+const AUDIO_BASE = "https://niuontheway-ops.github.io/resident-doctor/audio/";
+const IMG_LIB = "壶兰呼吸影像教学库 · 真实临床影像";
+
+/* 共用听诊点坐标（锚定背景图病人胸廓，百分比） */
+const POS = [
+  {x:22.8, y:39.5},            // 0 右肺腋侧
+  {x:25.5, y:47.0},            // 1 右下肺
+  {x:32.5, y:39.5},            // 2 左上肺
+  {x:31.8, y:48.0, below:true} // 3 心尖部（标签朝下）
+];
+
+const CASES = [
+/* ============ 第一案 ============ */
+{
+  no:"第一案", name:"铁锈色的证词", disease:"社区获得性肺炎 · 肺炎链球菌",
+  patient:"王强 · 28岁 · 快递员",
+  chief:{
+    t:"主诉：发热、咳嗽、咳铁锈色痰伴右下胸痛 3 天。",
+    d:"现病史：3 天前淋雨受凉，昨夜突发寒战、高热 39.5℃，咳嗽咳铁锈色痰，右下胸痛随呼吸加重，伴心悸、胸闷。"
+  },
+  lines:{
+    f1:[
+      {sp:"narr",   t:"深夜十一点，内科侦探所。Evidence Board 上贴满了待查的证词，一位年轻人躺在诊床上——呼吸急促，面颊潮红。"},
+      {sp:"holmes", t:"华生，来活了。床号三，王强，28 岁，快递员。三天前淋了一场雨，昨晚突然寒战、高热 39.5℃。"},
+      {sp:"patient",t:"医生，我三天前淋了雨，回来就浑身发冷……昨天夜里突然打寒战，一量体温 39.5℃。一直咳嗽，痰今天是铁锈色的；右下胸这里一吸气就像刀扎一样疼，还心慌、闷得慌。"},
+      {sp:"narr",   t:"主诉：发热、咳嗽、咳铁锈色痰伴右下胸痛 3 天。现病史与伴随症状已记录入案卷。"},
+      {sp:"holmes", t:"铁锈色痰——有意思的证词。华生，别急着下结论。证据要自己去找：把听诊器放到该放的地方去。"},
+      {sp:"holmes", t:"他胸前有四处听诊点在发光。第一次点击先听，第二次点击判断是什么声音。"}
+    ],
+    f1b:[
+      {sp:"holmes", t:"很好，四份声音证词都收齐了。汇总：右下肺——支气管呼吸音；右腋侧——密集细湿啰音；左上肺与心尖部——正常。"},
+      {sp:"holmes", t:"正常的位置一片安静，异常的位置证据确凿。华生，档案室里混进了四份报告，去把属于他那份找出来。"}
+    ],
+    f2ok:[
+      {sp:"holmes", t:"右下叶大片实变影，支气管气象清晰可见——和你的听诊结果严丝合缝。证物确认无误。"},
+      {sp:"holmes", t:"现在，华生。合上档案，告诉我：你的诊断是什么？下一步怎么治？"}
+    ],
+    f3end:[
+      {sp:"holmes", t:"决定已经下了。医嘱即判决——而判决，会立刻执行。"}
+    ]
+  },
+  hotspots:[
+    {pos:0, label:"右肺腋侧", short:"湿啰音", sound:"crackle.mp3",
+     heard:"湿啰音（细湿啰音）",
+     finding:"右肺腋侧吸气末闻及密集细湿啰音，不咳不消。",
+     teach:"《诊断学》第10版：湿啰音提示气道内有稀薄分泌物，见于肺炎、肺水肿等。"},
+    {pos:1, label:"右下肺", short:"支气管呼吸音", sound:"bronchial.mp3",
+     heard:"支气管呼吸音（异常部位）",
+     finding:"右下肺闻及支气管呼吸音——该部位本应是肺泡呼吸音，现在却像从气管里直接传来，音调高、呼气更长。",
+     teach:"《诊断学》第10版：肺实变时，实变组织传导声波良好，肺泡呼吸音变为支气管呼吸音。"},
+    {pos:2, label:"左上肺", short:"肺泡呼吸音", sound:"vesicular.mp3",
+     heard:"肺泡呼吸音（正常）",
+     finding:"左上肺呼吸音清，呈正常的肺泡呼吸音，吸气相长于呼气相。",
+     teach:"《诊断学》第10版：正常肺泡呼吸音，吸气相较呼气相约长。"},
+    {pos:3, label:"心尖部", short:"正常心音", sound:"heart_normal.mp3",
+     heard:"心音正常（S1、S2）",
+     finding:"心尖部 S1、S2 清晰，律齐，心率约 108 次/分（发热所致窦性心动过速），无杂音。",
+     teach:"《诊断学》第10版：窦性心动过速常见于发热、贫血、甲状腺功能亢进等。"}
+  ],
+  reports:[
+    { id:"A", ok:true, label:"报告 A · 胸部 CT", head:"胸部 CT 平扫（候选 A）",
+      img:"img/reportA.jpg",
+      src:"真实病例影像：Eur J Radiol Open 2026（PMC13351633，Fig.3a 裁切，CC BY-NC-ND 4.0）——右下叶实变伴支气管气象（箭头）。",
+      desc:"CT 轴位肺窗：右下叶见大片致密实变影，其内可见含气支气管气象（箭头所示低密度分支气道影），实变紧贴胸膜。余肺野清晰。",
+      quote:"《内科学》第10版：肺炎链球菌肺炎典型影像为肺叶、肺段的大片实变，可见支气管气象——与报告 A 完全吻合。" },
+    { id:"B", ok:false, label:"报告 B · 心电图", head:"十二导联心电图（候选 B）",
+      img:"img/reportB.jpg",
+      src:"真实病例心电图：Front Cardiovasc Med 2026（PMC13462042，Fig.1A 裁切，CC BY 4.0）——国内医院 12 导联记录。",
+      desc:"窦性心律，Ⅱ、Ⅲ、aVF 导联 ST 段抬高，Ⅰ、aVL 导联对应性 ST 段压低。诊断提示：急性下壁 STEMI。",
+      quote:"这是另一位心肌梗死病人的心电图——与病人发热、铁锈色痰、右下肺实变体征完全对不上号。" },
+    { id:"C", ok:false, label:"报告 C · 血常规", head:"静脉血常规（候选 C）",
+      desc:"WBC 2.1×10⁹/L ↓，中性粒细胞比例 38% ↓，淋巴细胞比例 55% ↑，PLT 62×10⁹/L ↓，Hb 96g/L ↓。三系减少。",
+      quote:"肺炎链球菌肺炎应见 WBC 明显升高伴中性粒细胞比例增高（核左移），这张三系减少的报告不属于他。",
+      svg:"wbc_low" },
+    { id:"D", ok:false, label:"报告 D · 胸部 CT", head:"胸部 CT 平扫（候选 D）",
+      img:"img/reportD.jpg",
+      src:"真实病例影像：Eur J Radiol Open 2026（PMC13351633，Fig.11a 裁切，CC BY-NC-ND 4.0）——粒缺血液病患者，双肺磨玻璃影。",
+      desc:"CT 轴位肺窗：双肺散在斑片状磨玻璃影伴小片实变（左肺为著），呈非节段性分布，未见整叶均匀实变，支气管气象不明显。",
+      quote:"《内科学》第10版：大叶性肺炎应为整个肺叶的均匀实变——本图斑片状磨玻璃影不符合，这不是他的报告。" }
+  ],
+  quiz:[
+    { q:"第二问 · 你的诊断是什么？",
+      opts:[
+        { t:"A. 肺炎链球菌肺炎（右下叶）", ok:true,
+          fb:"✅ 正确。青年男性、淋雨受凉后突发寒战高热、铁锈色痰、右下胸痛，体征为典型肺实变（语颤增强＋叩诊浊音＋支气管呼吸音），WBC 显著升高，CT 示右下叶大片实变伴支气管气象——《内科学》第10版中最经典的大叶性肺炎。" },
+        { t:"B. 继发性肺结核（右下叶）", ok:false,
+          fb:"❌ 不对。肺结核起病缓、低热盗汗为主，好发于上叶尖后段及下叶背段，痰抗酸杆菌可阳性；本例起病急骤、高热寒战、铁锈色痰，均不支持。" },
+        { t:"C. 急性心肌梗死", ok:false,
+          fb:"❌ 不对。心梗表现为压榨性胸痛、心电图 ST 段抬高与心肌标志物升高，与本例发热咳痰及肺实变体征不符——报告 B 正是拿来迷惑你的心梗心电图。" },
+        { t:"D. 肺血栓栓塞症", ok:false,
+          fb:"❌ 不对。肺栓塞多为呼吸困难、胸痛、咯血三联征，常有长期卧床/制动病史，D-二聚体升高，影像见肺动脉充盈缺损，与本例不符。" }
+      ]
+    },
+    { q:"第三问 · 下一步治疗方案是？",
+      opts:[
+        { t:"A. 立即经验性抗感染：首选青霉素 G 静脉滴注，辅以休息、补液、退热、镇痛", ok:true,
+          fb:"✅ 正确。《内科学》第10版：肺炎链球菌肺炎首选青霉素 G，应在留取病原学标本后尽早开始经验性抗感染治疗，不必等待培养结果；同时辅以休息、补液等支持治疗。" },
+        { t:"B. 等痰培养＋药敏结果回报后再决定是否用抗生素", ok:false,
+          fb:"❌ 太迟了。重症肺炎不等培养——延迟抗感染治疗显著增加死亡风险。正确做法：留取标本后立即开始经验性治疗，再根据药敏调整。" },
+        { t:"C. 口服奥司他韦抗病毒治疗", ok:false,
+          fb:"❌ 用错方向。本例证据链指向肺炎链球菌（细菌），奥司他韦仅针对流感病毒，对肺炎链球菌无效。" },
+        { t:"D. 大剂量阿司匹林退热＋覆盖厚被子发汗", ok:false,
+          fb:"❌ 危险。「捂汗」会阻碍散热甚至加重高热；退热应首选物理降温与适量解热镇痛药，且关键治疗是抗感染，而非单纯退热。" }
+      ]
+    }
+  ],
+  endings:{
+    perfect:{ title:"破案了 · 病人痊愈", cls:"good",
+      text:"病人经青霉素 G 治疗后 24 小时内体温回落，72 小时后复查炎症指标明显下降，第五天步行出院。福尔摩斯把烟斗从嘴里拿下来，难得地笑了笑：「华生，你的听诊器今晚比我的放大镜更有用。」" },
+    reportOnly:{ title:"有惊无险 · 病人痊愈", cls:"good",
+      text:"诊断与治疗正确，病人转危为安。但福尔摩斯皱着眉敲了敲那份认错的报告：「华生，看错证物虽未害人，但侦探不能靠侥幸破案。」" },
+    dead:{ title:"行动太迟 · 病人不治", cls:"bad",
+      text:"错误的判断让最佳治疗窗口白白流走。凌晨 3 点 40 分，病人感染性休克加重，抢救无效，心电监护拉成一条直线。福尔摩斯缓缓摘下帽子：「记住今晚，华生。在内科，证据的价值以分钟计价。」" }
+  },
+  review:[
+    "<b>病史</b>：青年男性＋淋雨受凉诱因＋寒战高热＋铁锈色痰＋患侧胸痛 → 高度提示肺炎链球菌肺炎。",
+    "<b>体征（肺实变四联）</b>：患侧呼吸运动减弱、语颤增强、叩诊浊音、支气管呼吸音＋湿啰音（《诊断学》第10版）。",
+    "<b>检查</b>：WBC 显著升高伴核左移；影像示肺叶大片实变伴支气管气象。",
+    "<b>治疗</b>：留取标本后<b>立即</b>经验性抗感染——首选青霉素 G；对症支持，重症评估 CURB-65（《内科学》第10版）。",
+    "<b>侦探心法</b>：正常体征也是证据——左肺与心音正常，把病变精准锁定在一叶。"
+  ]
+},
+/* ============ 第二案 ============ */
+{
+  no:"第二案", name:"越来越短的呼吸", disease:"慢性阻塞性肺疾病 · 急性加重期",
+  patient:"周伯 · 71岁 · 退休矿工",
+  chief:{
+    t:"主诉：反复咳嗽咳痰 30 年，活动后气促 10 年，加重伴脓痰 3 天。",
+    d:"现病史：吸烟 50 年（约 50 包/年）。近两年平地行走即气促；3 天前受凉后痰转黄脓、量多，夜间不能平卧。SpO₂ 85%（未吸氧）。"
+  },
+  lines:{
+    f1:[
+      {sp:"narr",   t:"清晨六点，一位老人被轮椅推进内科侦探所——胸廓圆得像木桶，口唇发绀，连肩膀都在帮着喘气。"},
+      {sp:"holmes", t:"华生，床号五。周伯，71 岁，井下挖了三十年煤。烟龄五十年，每天一包。反复咳嗽咳痰三十年，这两年走平路都喘。三天前淋了雨，痰变成黄脓色，昨晚连躺平都费劲了。"},
+      {sp:"patient",t:"医生……我这口气……上……上不来……痰……咳不完……"},
+      {sp:"narr",   t:"呼吸 28 次/分，SpO₂ 85%（未吸氧）。桶状胸，肋间隙增宽，叩诊双肺过清音。主诉与现病史已入案卷。"},
+      {sp:"holmes", t:"桶状胸、过清音——胸廓已经被肺「撑」成了圆桶。华生，把听诊器用上，重点听他的呼气——"},
+      {sp:"holmes", t:"四个听诊点在发光。第一次点击先听，第二次点击告诉我：你听到了什么。"}
+    ],
+    f1b:[
+      {sp:"holmes", t:"汇总：右肺低调干啰音（鼾音）＋右下粗湿啰音；左肺满布高调哮鸣音，呼气相拖长；心尖心律齐但心音遥远。"},
+      {sp:"holmes", t:"呼气像吹不响的哨子——气流卡在了出气的路上。档案室有四份报告混在一起，去把属于周伯的那份找出来。"}
+    ],
+    f2ok:[
+      {sp:"holmes", t:"双肺透亮度增高、膈肌低平、心影狭长垂位——教科书级的肺过度充气。证物确认无误。"},
+      {sp:"holmes", t:"现在，华生：你的诊断？还有——给他多少浓度的氧气？这一问能救命，也能杀人。"}
+    ],
+    f3end:[
+      {sp:"holmes", t:"医嘱即判决。这一次，判决书里写着氧浓度。"}
+    ]
+  },
+  hotspots:[
+    {pos:0, label:"右肺腋侧", short:"干啰音（鼾音）", sound:"rhonchi.mp3",
+     heard:"干啰音——鼾音（低调）",
+     finding:"右肺闻及低调干啰音（鼾音），如熟睡鼾声，提示大气道内有较稠厚分泌物随气流振动。",
+     teach:"《诊断学》第10版：鼾音多发生于气管或主支气管；咳痰后可减少。"},
+    {pos:1, label:"右下肺", short:"粗湿啰音", sound:"crackle_coarse.mp3",
+     heard:"湿啰音（粗湿啰音）",
+     finding:"右下肺吸气早期闻及粗湿啰音——稀薄痰液在大气道内被气流冲动、破裂所致。",
+     teach:"《诊断学》第10版：粗湿啰音见于支气管扩张、肺水肿及痰多者，咳嗽后可减轻。"},
+    {pos:2, label:"左上肺", short:"哮鸣音", sound:"wheeze.mp3",
+     heard:"干啰音——哮鸣音（高调）",
+     finding:"左肺满布高调哮鸣音，呼气相为主且明显延长——支气管痉挛狭窄的乐音。",
+     teach:"《诊断学》第10版：哮鸣音为气流通过狭窄支气管的高调乐音，呼气相明显；COPD 与哮喘均可见。"},
+    {pos:3, label:"心尖部", short:"心音遥远", sound:"heart_normal.mp3",
+     heard:"心率 102 次/分，律齐；心音遥远",
+     finding:"心尖部心律齐、约 102 次/分；因肺过度充气、胸廓前后径增大，心音传导变差而显遥远。",
+     teach:"《诊断学》第10版：肺气肿时心音遥远，剑突下心音更清楚。"}
+  ],
+  reports:[
+    { id:"A", ok:true, label:"报告 A · 胸部 X 线", head:"胸部正位片（候选 A）",
+      img:"img/cxr_copd.jpg",
+      src:IMG_LIB+"（cxr_copd）",
+      desc:"胸廓前后径增大，双肺透亮度增高，肺纹理稀疏纤细，双膈肌低平，肋间隙增宽，心影狭长垂位——典型肺过度充气表现。",
+      quote:"《内科学》第10版：COPD 胸片典型改变即肺过度充气——透亮度增高、膈肌低平、心影狭长。报告 A 与周伯的桶状胸互相印证。" },
+    { id:"B", ok:false, label:"报告 B · 胸部 CT", head:"胸部 CT 平扫（候选 B）",
+      img:"img/ct_bronchiectasis.jpg",
+      src:IMG_LIB+"（ct_bronchiectasis）",
+      desc:"双肺多发支气管柱状及囊状扩张，可见印戒征与轨道征，部分黏液嵌塞，扩张支气管延伸至胸膜下。",
+      quote:"这是另一位支气管扩张症病人的 CT。支扩也慢性咳脓痰，但影像是「印戒征」——周伯的片子是过度充气，不是支扩。" },
+    { id:"C", ok:false, label:"报告 C · 胸部 CT", head:"胸部 CT 平扫（候选 C）",
+      img:"img/ct2_lobar_pneumonia.jpg",
+      src:IMG_LIB+"（ct2_lobar_pneumonia）",
+      desc:"右肺大片致密实变影，内见支气管气象，叶间裂清晰——大叶性肺炎改变。",
+      quote:"第一案那位年轻人的老朋友：大叶性实变。周伯是「透亮的肺」，这份是「实变的肺」——不属于他。" },
+    { id:"D", ok:false, label:"报告 D · 心电图", head:"十二导联心电图（候选 D）",
+      img:"img/ecg_af.jpg",
+      src:IMG_LIB+"（ecg_af）",
+      desc:"P 波消失，代之以 f 波，RR 间期绝对不等——心房颤动。",
+      quote:"另一位房颤病人的心电图。COPD 后期可合并房颤，但周伯心尖部心律齐——这份报告对不上号。" }
+  ],
+  quiz:[
+    { q:"第二问 · 你的诊断是什么？",
+      opts:[
+        { t:"A. 慢性阻塞性肺疾病 · 急性加重期（AECOPD）", ok:true,
+          fb:"✅ 正确。老年＋50 包年吸烟＋职业粉尘＋慢性咳痰三十年＋进行性气促＋桶状胸、过清音、呼气延长＋影像过度充气——典型的 COPD 急性加重。确诊靠肺功能：吸入支气管扩张剂后 FEV1/FVC＜0.70（《内科学》第10版）。" },
+        { t:"B. 支气管哮喘", ok:false,
+          fb:"❌ 方向反了。哮喘多起病于年轻时、发作性、可逆性气流受限，缓解期如常人；周伯是中年后渐进加重、症状持续不可逆。不过哮喘和 COPD 的「哮鸣音」听起来确实像双胞胎——第三案见分晓。" },
+        { t:"C. 支气管扩张症", ok:false,
+          fb:"❌ 支扩以大量脓痰、反复咯血为特征，CT 见印戒征/轨道征——那正是档案室里报告 B 的病人。周伯的胸片是过度充气，不是支扩。" },
+        { t:"D. 冠心病 · 左心衰竭", ok:false,
+          fb:"❌ 左心衰竭是端坐呼吸、粉红色泡沫痰、肺底湿啰音为主；本例桶状胸、干哮鸣音为主、心影狭长——都不是心衰的样子。" }
+      ]
+    },
+    { q:"第三问 · 氧疗与治疗决策？（这一问能救命，也能杀人）",
+      opts:[
+        { t:"A. 控制性低流量氧疗（目标 SpO₂ 88%–92%）＋雾化支气管扩张剂＋静脉激素＋抗感染", ok:true,
+          fb:"✅ 正确。《内科学》第10版：AECOPD 氧疗原则是「控制性低流量」，目标 SpO₂ 88%–92%；支气管扩张剂（SABA±SAMA）雾化、全身激素、按指征抗感染；中重度高碳酸血症考虑无创通气。" },
+        { t:"B. 面罩高浓度吸氧，尽快把 SpO₂ 拉到 98%", ok:false,
+          fb:"❌ 这正是本案最危险的陷阱。高浓度氧解除低氧性呼吸驱动 → 通气下降 → CO₂ 潴留加重 → 肺性脑病。「氧是药，过量也是毒。」" },
+        { t:"C. 大剂量镇静剂，让老人安静休息", ok:false,
+          fb:"❌ 呼吸驱动本已脆弱，镇静剂一压就是呼吸抑制。躁动往往是缺氧本身的表现——纠正缺氧、通畅气道才是正解。" },
+        { t:"D. 静脉大剂量利尿剂，抢先「消肺水肿」", ok:false,
+          fb:"❌ 本例没有肺水肿证据，盲目利尿只会低钾、低容量、痰液黏稠化。治疗要对准证据，而不是「顺手一起治」。" }
+      ]
+    }
+  ],
+  endings:{
+    perfect:{ title:"破案了 · 病人好转", cls:"good",
+      text:"控制性低流量氧疗后，SpO₂ 稳在 90%–92%；雾化支气管扩张剂下去，周伯当晚能平躺着说完一整句话。福尔摩斯难得表扬人：「华生，你守住了 88%–92% 这条线。对慢阻肺的病人，氧是药，过量也是毒。」" },
+    reportOnly:{ title:"有惊无险 · 病人好转", cls:"good",
+      text:"诊断与治疗正确，周伯转危为安。福尔摩斯敲了敲那份认错的报告：「这次没耽误人。但靠侥幸破案的侦探，早晚栽在证据上。」" },
+    dead:{ title:"氧用猛了 · 病人不治", cls:"bad",
+      text:"面罩高浓度氧下去，SpO₂ 一度「漂亮」地冲到 98%——随后周伯呼之不应。血气：pH 7.18，PaCO₂ 92mmHg。肺性脑病。福尔摩斯缓缓摘下帽子：「记住今晚。纠正低氧要温柔，留住他的呼吸驱动，才是留命。」" }
+  },
+  review:[
+    "<b>病史</b>：老年＋长期吸烟/职业粉尘＋慢性咳痰＋进行性气促 → COPD；急性加重＝短期内痰量↑、脓性痰、呼吸困难↑。",
+    "<b>体征</b>：桶状胸、叩诊过清音、呼气相延长、干湿啰音、心音遥远（《诊断学》第10版）。",
+    "<b>氧疗铁律</b>：控制性低流量，目标 SpO₂ 88%–92%——高浓度氧抑制呼吸驱动 → CO₂ 潴留 → 肺性脑病（《内科学》第10版）。",
+    "<b>急性加重期治疗</b>：支气管扩张剂雾化＋全身激素＋按指征抗感染；中重度高碳酸血症考虑无创通气。",
+    "<b>侦探心法</b>：哮喘与 COPD 都喘，但哮喘「年轻时起病、发作性、可逆」，COPD「中年后渐进、持续、不可逆」。"
+  ]
+},
+/* ============ 第三案 ============ */
+{
+  no:"第三案", name:"夜半的哨音", disease:"支气管哮喘 · 重度急性发作",
+  patient:"林晓 · 19岁 · 大学生",
+  chief:{
+    t:"主诉：反复喘息发作 5 年，突发加重 2 小时。",
+    d:"现病史：5 年来反复发作性喘息，换季、接触花草后诱发，每次数十分钟可自行缓解，未系统诊治。2 小时前熬夜赶论文后突发严重喘息。SpO₂ 91%，心率 124 次/分。"
+  },
+  lines:{
+    f1:[
+      {sp:"narr",   t:"凌晨两点十七分，一位姑娘被室友架进内科侦探所，整个人折在椅子上喘。"},
+      {sp:"holmes", t:"华生，床号七。林晓，19 岁，大三。五年前起反复「喘」，换季、逛花市之后就发作，每次几十分钟自己就缓过去，从没系统治过。今晚赶论文到半夜，突然又喘起来。"},
+      {sp:"patient",t:"医生……我……喘……（抓着桌沿，耸着肩呼吸）说……说不完……一句话……"},
+      {sp:"narr",   t:"端坐呼吸，大汗淋漓，锁骨上窝与肋间隙凹陷，说话只能成单字。SpO₂ 91%，心率 124 次/分。主诉与现病史已入案卷。"},
+      {sp:"holmes", t:"注意她句子的长度——一句比一句短。华生，双肺都要听，别只听一边。"}
+    ],
+    f1b:[
+      {sp:"holmes", t:"双肺满布高调哮鸣音，对称分布，呼气相拖得很长——这就是那只「哨子」。"},
+      {sp:"holmes", t:"但华生，记住今天最重要的一课：哮鸣音消失，不一定是好转——也可能是气流根本进不出了。档案室去把属于她的报告找出来。"}
+    ],
+    f2ok:[
+      {sp:"holmes", t:"胸片没有实变、没有气胸——影像帮我们排除了陷阱，却下不了哮喘的诊断。诊断靠的是发作性、可逆性和肺功能。"},
+      {sp:"holmes", t:"现在，华生：诊断？以及——第一个小时的处方？重度发作，每一分钟都在计价。"}
+    ],
+    f3end:[
+      {sp:"holmes", t:"医嘱即判决。这一夜，判决书写在雾化器里。"}
+    ]
+  },
+  hotspots:[
+    {pos:1, label:"右肺", short:"哮鸣音", sound:"wheeze.mp3",
+     heard:"哮鸣音（呼气相高调干啰音）",
+     finding:"右肺满布高调哮鸣音，呼气相明显延长——支气管痉挛狭窄的典型乐音。",
+     teach:"《诊断学》第10版：哮鸣音是气流通过狭窄支气管产生的高调乐音，呼气相明显；哮喘发作的标志性体征。"},
+    {pos:2, label:"左上肺", short:"哮鸣音（对称）", sound:"wheeze.mp3",
+     heard:"哮鸣音（对称分布）",
+     finding:"左肺同样满布哮鸣音——双肺对称、广泛分布，正是「全气道都在痉挛」的证据。",
+     teach:"《内科学》第10版：哮喘发作的哮鸣音呈广泛、对称分布；这是与局灶性病变鉴别的关键。"},
+    {pos:3, label:"心尖部", short:"窦性心动过速", sound:"heart_normal.mp3",
+     heard:"心率 124 次/分，律齐",
+     finding:"心率 124 次/分、律齐——重度发作时缺氧与呼吸做功增加的代偿表现。",
+     teach:"《诊断学》第10版：心率＞120 次/分是哮喘重度发作的重要评估指标之一。"}
+  ],
+  reports:[
+    { id:"A", ok:true, label:"报告 A · 胸部 X 线", head:"胸部正位片（候选 A）",
+      img:"img/cxr_normal.jpg",
+      src:IMG_LIB+"（cxr_normal）",
+      desc:"胸廓对称，气管居中，双肺纹理稍增多，未见实变影及气胸征象，双侧肋膈角锐利，心影大小正常。",
+      quote:"《内科学》第10版：哮喘发作时胸片可正常或仅示过度充气——影像的价值在于排除气胸、肺炎等并发症，不能确诊哮喘。这张「看不出病」的片子，恰恰属于她。" },
+    { id:"B", ok:false, label:"报告 B · 胸部 CT", head:"胸部 CT 平扫（候选 B）",
+      img:"img/ct_ggo.jpg",
+      src:IMG_LIB+"（ct_ggo）",
+      desc:"双肺弥漫磨玻璃影伴多发囊状改变，呈地图样分布——机会性感染（如肺孢子菌肺炎）样改变。",
+      quote:"这是另一位免疫抑制病人的 CT。林晓的胸片干干净净——磨玻璃影不属于她。" },
+    { id:"C", ok:false, label:"报告 C · 胸部 X 线", head:"胸部正位片（候选 C）",
+      img:"img/cxr2_pneumothorax_tension.jpg",
+      src:IMG_LIB+"（cxr2_pneumothorax_tension）",
+      desc:"一侧胸腔大量气胸，肺组织被压缩，纵隔向对侧移位——张力性气胸。",
+      quote:"另一位张力性气胸病人的片子。记住它的用途：若哮喘病人哮鸣音突然消失、呼吸困难反而加重，必须立刻排除气胸——但林晓气管居中、双肺哮鸣音对称，不是它。" },
+    { id:"D", ok:false, label:"报告 D · 胸部 CT", head:"胸部 CT 血管成像（候选 D）",
+      img:"img/ct_pe.jpg",
+      src:IMG_LIB+"（ct_pe）",
+      desc:"CTPA 示肺动脉主干及分支内多发充盈缺损（箭头）——肺血栓栓塞症。",
+      quote:"另一位肺栓塞病人的 CTPA。肺栓塞也「喘」，但不会有双肺满布哮鸣音——那份证据属于别人。" }
+  ],
+  quiz:[
+    { q:"第二问 · 你的诊断是什么？",
+      opts:[
+        { t:"A. 支气管哮喘 · 重度急性发作", ok:true,
+          fb:"✅ 正确。年轻起病＋发作性＋可自行缓解＋诱因明确＋双肺对称哮鸣音；说话成单字、大汗、辅助呼吸肌参与、心率＞120——重度发作的评估链条完整（《内科学》第10版）。" },
+        { t:"B. 慢阻肺急性加重", ok:false,
+          fb:"❌ COPD 是中年后渐进、持续、不可逆的气流受限；19 岁、发作性、能自行缓解——方向反了。上一案的老周才是这个答案。" },
+        { t:"C. 过度通气综合征（癔症性）", ok:false,
+          fb:"❌ 功能性过度通气不会有哮鸣音、三凹征和 SpO₂ 下降。器质性证据就摆在听诊器里，别被「年轻+情绪诱因」带偏。" },
+        { t:"D. 张力性气胸", ok:false,
+          fb:"❌ 气胸=气管偏移、患侧叩诊鼓音、呼吸音消失。报告 C 正是提醒你这个致命鉴别的——但她气管居中、双肺哮鸣音对称，不支持。" }
+      ]
+    },
+    { q:"第三问 · 第一个小时的处方？",
+      opts:[
+        { t:"A. 沙丁胺醇雾化＋氧疗＋静脉甲泼尼龙，动态评估病情", ok:true,
+          fb:"✅ 正确。《内科学》第10版：重度发作首选吸入 SABA（沙丁胺醇）雾化＋氧疗＋全身激素，可联合异丙托溴铵；同时动态评估，做好升级治疗准备。" },
+        { t:"B. 普萘洛尔静脉注射，把心率「压回」正常", ok:false,
+          fb:"❌ 极其危险！β 受体阻滞剂会拮抗支气管扩张信号，可诱发致命性哮喘危象。窦速是缺氧的代偿——纠正发作本身，心率自然回落。" },
+        { t:"C. 吗啡镇静，让她安静下来", ok:false,
+          fb:"❌ 阿片类抑制呼吸驱动、抑制咳嗽反射。重度哮喘的躁动＝缺氧，镇静等于关掉警报器而不灭火。" },
+        { t:"D. 口服抗生素，回家观察", ok:false,
+          fb:"❌ 重度发作必须急诊处理并监测。哮喘发作本身不是细菌感染，「抗生素当安慰剂」既救不了她，也养出耐药菌。" }
+      ]
+    }
+  ],
+  endings:{
+    perfect:{ title:"破案了 · 病人缓解", cls:"good",
+      text:"沙丁胺醇雾化第二口下去，哨音开始退潮；半小时后她能靠在椅背上说完完整的句子，静脉甲泼尼龙接力护航。福尔摩斯合上案卷：「哮喘的确诊写在肺功能上，但救命写在第一个小时的雾化里。华生，你把那句『说不完的话』还给了她。」" },
+    reportOnly:{ title:"有惊无险 · 病人缓解", cls:"good",
+      text:"诊断与治疗都对，林晓顺利缓解。福尔摩斯敲敲那份认错的报告：「这次没耽误人。但侦探认错证物，下一次未必这么走运。」" },
+    dead:{ title:"静默的胸 · 病人不治", cls:"bad",
+      text:"处理迟疑，哮鸣音渐渐消失——不是缓解，是气流彻底断了。静默胸、意识丧失、插管上机。福尔摩斯摘下帽子，声音很低：「满肺的哨音吓人，寂静的胸才要命。华生，替她记住这一课。」" }
+  },
+  review:[
+    "<b>病史</b>：年轻时起病＋发作性喘息＋可自行缓解＋诱因（变应原/上感/劳累）→ 哮喘（《内科学》第10版）。",
+    "<b>体征</b>：双肺广泛哮鸣音、呼气相延长；端坐呼吸、大汗、辅助呼吸肌参与、说话成单字＝重度发作。",
+    "<b>危象警报</b>：哮鸣音消失（静默胸）、意识模糊、SpO₂ 进行性下降——立即抢救，并排除气胸等并发症。",
+    "<b>治疗</b>：首选吸入 SABA 雾化＋氧疗＋全身激素，可联合异丙托溴铵；禁用 β 受体阻滞剂与镇静剂。",
+    "<b>侦探心法</b>：重度哮喘可以「听不见」——体征的消失比出现更危险。"
+  ]
+}
+];
+
+/* 待归档（内科学第10版 呼吸系统其余病种） */
+const LOCKED = ["急性气管-支气管炎","肺脓肿","支气管扩张症","肺结核","原发性支气管肺癌","间质性肺疾病","肺血栓栓塞症","肺源性心脏病","胸腔积液","气胸","呼吸衰竭与 ARDS","烟草依赖"];
+
+/* ============ 状态 ============ */
+const S = { ci:-1, frame:0, lineIdx:0, found:{}, foundCount:0, identified:{}, idCount:0,
+  reportPicked:null, quizAns:[null,null], quizIdx:0, muted:false, completed:{} };
+function C(){ return CASES[S.ci]; }
+
+function starCount(){
+  let n=0;
+  if(S.idCount>=C().hotspots.length) n+=2;
+  if(S.reportPicked && S.reportPicked.ok) n+=1;
+  if(S.quizAns[0]===true) n+=1;
+  if(S.quizAns[1]===true) n+=1;
+  return n;
+}
+function starsHTML(n){ let s=""; for(let i=0;i<5;i++) s+= i<n?"★":"☆"; return s; }
+function updateHUD(){
+  document.getElementById("hud-stars").textContent = S.ci<0?"☆☆☆☆☆":starsHTML(starCount());
+  const cells=document.querySelectorAll("#filmstrip .cell");
+  cells.forEach(c=>c.classList.toggle("cur", +c.dataset.c===S.frame && S.frame>0));
+}
+
+/* ============ UI 音效（WebAudio，仅界面提示音） ============ */
+let AC=null;
+function beep(freq,dur,type,vol){
+  if(S.muted) return;
+  try{
+    AC = AC || new (window.AudioContext||window.webkitAudioContext)();
+    const o=AC.createOscillator(), g=AC.createGain();
+    o.type=type||"square"; o.frequency.value=freq;
+    g.gain.value=vol||0.04;
+    o.connect(g); g.connect(AC.destination);
+    o.start();
+    g.gain.exponentialRampToValueAtTime(0.0001, AC.currentTime+dur);
+    o.stop(AC.currentTime+dur+0.02);
+  }catch(e){}
+}
+function chord(freqs,dur,vol){ freqs.forEach((f,i)=>setTimeout(()=>beep(f,dur,"triangle",vol||0.06), i*90)); }
+function flatlineTone(){
+  if(S.muted) return;
+  try{
+    AC = AC || new (window.AudioContext||window.webkitAudioContext)();
+    const o=AC.createOscillator(), g=AC.createGain();
+    o.type="sine"; o.frequency.value=880;
+    g.gain.value=0.05;
+    o.connect(g); g.connect(AC.destination);
+    o.start(); g.gain.setValueAtTime(0.05,AC.currentTime+1.6);
+    g.gain.linearRampToValueAtTime(0.0001,AC.currentTime+2.2);
+    o.stop(AC.currentTime+2.3);
+  }catch(e){}
+}
+
+/* ============ 听诊音播放（真实录音） ============ */
+let auscAudio=null;
+function playAusc(file){
+  try{
+    if(auscAudio){ auscAudio.pause(); auscAudio.currentTime=0; }
+    auscAudio = new Audio(AUDIO_BASE+file);
+    auscAudio.volume = 0.9;
+    auscAudio.muted = S.muted;
+    auscAudio.play().catch(()=>{ showToast("⚠ 浏览器拦截了音频，请再点一次或检查网络"); });
+  }catch(e){}
+}
+
+/* ============ 舞台自适应（图片比例动态获取） ============ */
+let STAGE_RATIO = 1024/559;
+function fitStage(){
+  const wrap=document.getElementById("scene-wrap");
+  const stage=document.getElementById("stage");
+  const W=wrap.clientWidth, H=wrap.clientHeight;
+  let w=W, h=W/STAGE_RATIO;
+  if(h>H){ h=H; w=H*STAGE_RATIO; }
+  stage.style.width=w+"px";
+  stage.style.height=h+"px";
+}
+window.addEventListener("resize",fitStage);
+
+/* ============ 对话引擎 ============ */
+const bubble = document.getElementById("bubble");
+const dlgText = document.getElementById("dlg-text");
+const speakerEl = document.getElementById("speaker");
+const dlgHint = document.getElementById("dlg-hint");
+const actionBar = document.getElementById("action-bar");
+const hsLayer = document.getElementById("hotspots");
+const SP_NAME = {holmes:"福尔摩斯",watson:"华生（你）",patient:"病人",narr:"旁 白"};
+let typing=null, curLines=null, curLineDone=false, onLinesEnd=null;
+
+function speak(lines, cb){
+  curLines = lines; S.lineIdx = 0; onLinesEnd = cb||null;
+  bubble.classList.add("show");
+  showLine(true);
+}
+function showLine(pop){
+  const ln = curLines[S.lineIdx];
+  let name = SP_NAME[ln.sp]||ln.sp;
+  if(ln.sp==="patient" && S.ci>=0) name = C().patient.split(" · ")[0]+"（病人）";
+  speakerEl.textContent = name;
+  speakerEl.className = ln.sp;
+  if(ln.sp==="patient" && !S.ccLogged){ S.ccLogged=true; addChiefComplaint(); }
+  dlgHint.style.visibility = "hidden";
+  actionBar.innerHTML = "";
+  curLineDone = false;
+  if(pop){
+    bubble.classList.remove("pop"); void bubble.offsetWidth; bubble.classList.add("pop");
+  }
+  let i=0; dlgText.textContent="";
+  if(typing) clearInterval(typing);
+  const tick = ln.sp==="narr"?0:1;
+  typing = setInterval(()=>{
+    dlgText.textContent = ln.t.slice(0,++i);
+    if(tick && i%3===0) beep(1900,0.012,"square",0.012);
+    if(i>=ln.t.length){ clearInterval(typing); typing=null; lineDone(); }
+  },22);
+}
+function lineDone(){
+  curLineDone = true;
+  const last = S.lineIdx >= curLines.length-1;
+  if(last && onLinesEnd){
+    dlgHint.style.visibility="hidden";
+    const cb = onLinesEnd;
+    onLinesEnd = null;
+    cb();
+    return;
+  }
+  dlgHint.style.visibility="visible";
+}
+bubble.addEventListener("click",e=>{
+  if(e.target.closest(".btn")) return;
+  if(!curLines) return;
+  if(!curLineDone){
+    if(typing) clearInterval(typing);
+    typing=null;
+    dlgText.textContent = curLines[S.lineIdx].t;
+    lineDone();
+    return;
+  }
+  if(S.lineIdx < curLines.length-1){ S.lineIdx++; showLine(true); }
+});
+
+function setAction(label, fn, cls){
+  actionBar.innerHTML="";
+  const b=document.createElement("button");
+  b.className="btn "+(cls||"");
+  b.textContent=label;
+  b.onclick=ev=>{ ev.stopPropagation(); beep(880,0.05,"square",0.05); fn(); };
+  actionBar.appendChild(b);
+}
+
+/* ============ 胶片快门切换 ============ */
+const shTop=document.getElementById("shutter");
+const shBot=document.getElementById("shutter-bot");
+function snapTo(frameNo){
+  S.frame=frameNo; updateHUD();
+  const old=shTop.querySelector(".frame-no");
+  if(old) old.remove();
+  const no=document.createElement("span");
+  no.className="frame-no";
+  no.textContent="第 "+["一","二","三","四"][frameNo-1]+" 格";
+  shTop.appendChild(no);
+  shTop.classList.remove("shutter-anim-top","snapping");
+  shBot.classList.remove("shutter-anim-bot");
+  void shTop.offsetWidth;
+  shTop.classList.add("shutter-anim-top","snapping");
+  shBot.classList.add("shutter-anim-bot");
+  beep(140,0.1,"square",0.07);
+  setTimeout(()=>beep(70,0.14,"square",0.08),280);
+  setTimeout(()=>{ shTop.classList.remove("shutter-anim-top","snapping"); shBot.classList.remove("shutter-anim-bot"); },620);
+}
+
+/* ============ 听诊点渲染（两段式：先听后辨） ============ */
+function renderHotspots(){
+  hsLayer.innerHTML="";
+  C().hotspots.forEach(h=>{
+    const p=POS[h.pos];
+    const d=document.createElement("div");
+    d.className="hs"+(p.below?" label-below":"");
+    d.style.left=p.x+"%";
+    d.style.top=p.y+"%";
+    d.innerHTML='<div class="ring"></div><div class="core">🩺</div><div class="label">'+h.label+'</div>';
+    d.addEventListener("click",ev=>{ ev.stopPropagation(); touchHotspot(d,h); });
+    hsLayer.appendChild(d);
+  });
+}
+function touchHotspot(el,h){
+  /* 第一次点击：只出部位名 + 播放声音（不告诉是什么音） */
+  if(!S.found[h.label]){
+    S.found[h.label]=true; S.foundCount++;
+    el.classList.add("listening");
+    playAusc(h.sound);
+    markPlaying(el);
+    showToast("🩺 "+h.label+"｜听诊中……仔细听。（再点一次：判断这是什么声音）");
+    beep(660,0.06,"triangle",0.06);
+    return;
+  }
+  /* 第二次点击：揭示声音身份，计入案卷 */
+  if(!S.identified[h.label]){
+    S.identified[h.label]=true; S.idCount++;
+    el.classList.remove("listening");
+    el.classList.add("done");
+    const lb=el.querySelector(".label");
+    if(lb) lb.textContent=h.label+" · "+h.short;
+    playAusc(h.sound);
+    markPlaying(el);
+    addDossier(h);
+    showToast("✅ "+h.label+"："+h.heard+"（证据已入案卷）");
+    updateHUD();
+    chord([660,880],0.08,0.06);
+    if(S.idCount>=C().hotspots.length){
+      setTimeout(()=>{
+        snapTo(1);
+        setTimeout(()=>speak(C().lines.f1b, ()=>setAction("前往档案室 →", enterFrame2,"red")),650);
+      },1800);
+    }
+    return;
+  }
+  /* 已辨别：重听 */
+  playAusc(h.sound);
+  markPlaying(el);
+  showToast("重听 · "+h.label+"："+h.short);
+}
+function markPlaying(el){
+  document.querySelectorAll(".hs").forEach(e=>e.classList.remove("playing"));
+  el.classList.add("playing");
+  setTimeout(()=>el.classList.remove("playing"),2800);
+}
+function addDossier(h){
+  const list=document.getElementById("dossier-list");
+  if(list.children[0] && list.children[0].textContent.indexOf("暂无")===0) list.innerHTML="";
+  const d=document.createElement("div");
+  d.className="d-item fade-in";
+  d.innerHTML="<b>"+h.label+"</b>："+h.finding+'<span class="src">'+h.teach.split("：")[0]+'</span><br><span style="font-size:11.5px;color:var(--ink-soft);">'+h.teach+"</span>";
+  list.appendChild(d);
+}
+/* 病人开口时自动把主诉/现病史记入案卷（置顶） */
+function addChiefComplaint(){
+  if(S.ci<0) return;
+  const list=document.getElementById("dossier-list");
+  if(list.children[0] && list.children[0].textContent.indexOf("暂无")===0) list.innerHTML="";
+  const d=document.createElement("div");
+  d.className="d-item fade-in";
+  d.innerHTML="<b>"+C().chief.t+'</b><span class="src">《诊断学》第10版 · 问诊</span><br>'+
+    '<span style="font-size:11.5px;color:var(--ink-soft);">'+C().chief.d+"</span>";
+  list.insertBefore(d, list.firstChild);
+}
+
+/* toast */
+const toastEl=document.getElementById("toast");
+let toastTimer=null;
+function showToast(t){
+  toastEl.textContent=t; toastEl.style.display="block";
+  toastEl.classList.remove("fade-in"); void toastEl.offsetWidth; toastEl.classList.add("fade-in");
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>toastEl.style.display="none",3200);
+}
+
+/* ============ 报告 SVG 缩略图（仅非影像报告使用） ============ */
+function reportSVG(kind){
+  if(kind==="wbc_low") return ''+
+    '<svg viewBox="0 0 200 160">'+
+    '<rect width="200" height="160" fill="#f6f2e4"/>'+
+    '<rect x="15" y="18" width="170" height="30" fill="#efe6c8" stroke="#b8a67f"/>'+
+    '<text x="26" y="38" fill="#3a2f24" font-size="13" font-family="serif" font-weight="bold">检验科 · 血常规报告单</text>'+
+    '<g font-size="11.5" font-family="monospace" fill="#3a2f24">'+
+    '<text x="26" y="70">WBC  2.1×10⁹/L   ↓↓</text>'+
+    '<text x="26" y="90">NEU%  38%        ↓</text>'+
+    '<text x="26" y="110">PLT   62×10⁹/L   ↓</text>'+
+    '<text x="26" y="130">Hb    96 g/L     ↓</text>'+
+    '</g>'+
+    '<text x="120" y="150" fill="#a63a2b" font-size="10" font-family="monospace">PANCYTOPENIA</text>'+
+    '</svg>';
+  return "";
+}
+
+/* ============ 第二格：报告四选一 ============ */
+function enterFrame2(){
+  closeAllOverlays();
+  document.getElementById("reports-sub").textContent="点击查看详情，然后认定属于 "+C().patient.split(" · ")[0]+" 的那一份。";
+  document.getElementById("ov-reports").classList.add("show");
+  const grid=document.getElementById("reports-grid");
+  grid.innerHTML="";
+  C().reports.forEach(r=>{
+    const c=document.createElement("div");
+    c.className="rcard";
+    c.innerHTML=(r.img?'<img class="rimg-thumb" src="'+r.img+'" alt="'+r.label+'">':reportSVG(r.svg))+'<div class="rlabel">'+r.label+'</div>';
+    c.onclick=()=>{ beep(700,0.04,"square",0.05); openReportDetail(r,c); };
+    grid.appendChild(c);
+  });
+  document.getElementById("report-verdict").textContent="";
+}
+function openReportDetail(r,card){
+  const ov=document.getElementById("ov-rdetail");
+  const body=document.getElementById("rdetail-body");
+  body.innerHTML =
+    '<button class="close-x" id="rd-close">✕</button>'+
+    '<div class="rhead">'+r.head+'</div>'+
+    '<div class="rimg">'+(r.img?'<img src="'+r.img+'" alt="'+r.head+'">':reportSVG(r.svg))+'</div>'+
+    (r.img?'<div class="rsrc">📷 '+r.src+'</div>':'')+
+    '<div>'+r.desc+'</div>'+
+    '<div style="text-align:center;margin-top:14px;">'+
+      '<button class="btn" id="rd-back">返回再看看</button> '+
+      '<button class="btn red" id="rd-claim">✋ 认定：这是他的报告</button>'+
+    '</div>';
+  ov.classList.add("show");
+  document.getElementById("rd-back").onclick=()=>ov.classList.remove("show");
+  document.getElementById("rd-close").onclick=()=>ov.classList.remove("show");
+  document.getElementById("rd-claim").onclick=()=>{
+    ov.classList.remove("show");
+    if(r.ok){
+      S.reportPicked=r;
+      card.classList.add("chosen-ok");
+      document.getElementById("report-verdict").innerHTML='<span style="color:var(--green)">✅ 认定正确——</span>'+r.quote;
+      chord([523,659,784],0.12,0.07);
+      setTimeout(()=>{
+        document.getElementById("ov-reports").classList.remove("show");
+        snapTo(2);
+        setTimeout(()=>speak(C().lines.f2ok, enterFrame3),650);
+      },1500);
+    }else{
+      card.classList.add("chosen-bad");
+      document.getElementById("report-verdict").innerHTML='<span style="color:var(--red)">❌ 认定错误——</span>'+r.quote;
+      beep(180,0.25,"sawtooth",0.06);
+      setTimeout(()=>card.classList.remove("chosen-bad"),900);
+    }
+  };
+}
+
+/* ============ 第三格：诊断与治疗 ============ */
+function enterFrame3(){
+  S.quizIdx=0;
+  closeAllOverlays();
+  renderQuiz();
+  document.getElementById("ov-quiz").classList.add("show");
+}
+function renderQuiz(){
+  const q=C().quiz[S.quizIdx];
+  const body=document.getElementById("quiz-body");
+  let html='<h2>🔍 第三格 · 疑问 '+(S.quizIdx+1)+' / '+C().quiz.length+'</h2><div class="sub">证据已在案卷中，请谨慎作答</div>'+
+    '<div class="quiz-q">'+q.q+'</div>';
+  q.opts.forEach((o,i)=>{ html+='<button class="opt" data-i="'+i+'">'+o.t+'</button>'; });
+  html+='<div class="fb" id="quiz-fb" style="display:none;"></div>';
+  body.innerHTML=html;
+  body.querySelectorAll(".opt").forEach(btn=>{
+    btn.onclick=()=>{
+      const o=q.opts[+btn.dataset.i];
+      body.querySelectorAll(".opt").forEach(b=>b.disabled=true);
+      if(o.ok){ btn.classList.add("pick-ok"); chord([523,659,784],0.12,0.07); S.quizAns[S.quizIdx]=true; }
+      else{ btn.classList.add("pick-bad"); beep(180,0.28,"sawtooth",0.06); S.quizAns[S.quizIdx]=false; }
+      const fb=document.getElementById("quiz-fb");
+      fb.textContent=o.fb; fb.style.display="block";
+      updateHUD();
+      setTimeout(()=>{
+        S.quizIdx++;
+        if(S.quizIdx<C().quiz.length){ renderQuiz(); }
+        else{
+          document.getElementById("ov-quiz").classList.remove("show");
+          snapTo(3);
+          setTimeout(()=>speak(C().lines.f3end, resolveEnding),650);
+        }
+      }, o.ok?2800:3600);
+    };
+  });
+}
+
+/* ============ 第四格：结局 ============ */
+function closeAllOverlays(){
+  document.querySelectorAll(".overlay").forEach(o=>{ if(o.id!=="ov-title") o.classList.remove("show"); });
+}
+function resolveEnding(){
+  const reportOK = S.reportPicked && S.reportPicked.ok;
+  const dxOK=S.quizAns[0]===true, txOK=S.quizAns[1]===true;
+  let endKey;
+  if(dxOK&&txOK&&reportOK) endKey="perfect";
+  else if(dxOK&&txOK&&!reportOK) endKey="reportOnly";
+  else endKey="dead";
+  if(endKey!=="dead") S.completed[S.ci]=true;
+  const e=C().endings[endKey];
+  const n=starCount();
+
+  const inner=document.getElementById("ending-inner");
+  inner.innerHTML =
+    '<div id="ending-title" class="'+e.cls+'">'+e.title+'</div>'+
+    '<svg id="ending-ecg" viewBox="0 0 460 90"></svg>'+
+    '<div id="ending-stars">'+starsHTML(n)+'</div>'+
+    '<div id="ending-text">'+e.text+'</div>'+
+    '<div class="review"><h3>📚 本案教学复盘</h3><ul>'+C().review.map(x=>'<li>'+x+'</li>').join("")+'</ul></div>'+
+    '<div id="ending-btns">'+
+      '<button class="btn ghost" id="btn-again">🔁 重审本案</button>'+
+      '<button class="btn red" id="btn-back">🗄 返回档案柜（下一案）</button>'+
+    '</div>';
+  document.getElementById("ov-end").classList.add("show");
+
+  const ecg=document.getElementById("ending-ecg");
+  if(endKey==="dead"){
+    ecg.innerHTML='<path d="M0 45 L60 45 L70 45 L75 20 L80 68 L85 45 L150 45 L155 22 L160 66 L165 45 L230 45 L235 24 L240 64 L245 45 L320 45 L325 26 L330 60 L335 45 L460 45" fill="none" stroke="#3aff6e" stroke-width="2"/>';
+    let t=0, flat=false;
+    const iv=setInterval(()=>{
+      t+=400;
+      if(t>3200 && !flat){
+        flat=true; clearInterval(iv);
+        ecg.innerHTML='<path d="M0 45 L460 45" fill="none" stroke="#3aff6e" stroke-width="2"/>';
+        flatlineTone();
+        showToast("心电监护：直线……");
+      }
+    },400);
+  }else{
+    ecg.innerHTML='<path d="M0 45 L50 45 L58 20 L66 68 L74 45 L130 45 L138 20 L146 68 L154 45 L220 45 L228 20 L236 68 L244 45 L310 45 L318 20 L326 68 L334 45 L460 45" fill="none" stroke="#3aff6e" stroke-width="2"/>';
+    chord([392,523,659,784],0.16,0.07);
+  }
+  document.getElementById("btn-again").onclick=()=>goCase(S.ci);
+  document.getElementById("btn-back").onclick=()=>openSelect();
+  updateHUD();
+}
+
+/* ============ 档案柜（选案） ============ */
+function openSelect(){
+  closeAllOverlays();
+  bubble.classList.remove("show");
+  curLines=null;
+  hsLayer.innerHTML="";
+  document.getElementById("hud-case").textContent="呼吸病学系列 · 《内科学》第10版";
+  S.frame=0; S.ci=-1; updateHUD();
+  const list=document.getElementById("case-list");
+  list.innerHTML="";
+  CASES.forEach((cs,i)=>{
+    const b=document.createElement("button");
+    b.className="case-card";
+    const done=S.completed[i];
+    b.innerHTML='<span class="c-no">'+cs.no+'</span>'+
+      '<span class="c-mid"><span class="c-name">'+cs.name+'</span><br><span class="c-dis">'+cs.disease+' · '+cs.patient+'</span></span>'+
+      '<span class="c-status '+(done?"":"todo")+'">'+(done?"★ 已破 · 可重审":"可接案")+'</span>';
+    b.onclick=()=>{ beep(700,0.05,"square",0.05); goCase(i); };
+    list.appendChild(b);
+  });
+  const ll=document.getElementById("locked-list");
+  ll.innerHTML=LOCKED.map(x=>'<span class="locked-chip">🔒 '+x+'</span>').join("");
+  document.getElementById("ov-select").classList.add("show");
+}
+
+/* ============ 接案 ============ */
+function goCase(ci){
+  S.ci=ci;
+  const cs=CASES[ci];
+  Object.assign(S,{frame:0,lineIdx:0,found:{},foundCount:0,identified:{},idCount:0,
+    reportPicked:null,quizAns:[null,null],quizIdx:0,ccLogged:false});
+  closeAllOverlays();
+  document.getElementById("hud-case").textContent=cs.no+" · "+cs.name+"（"+cs.disease+"）";
+  document.getElementById("dossier-list").innerHTML='<div class="d-item">（暂无证据，快去听诊病人）</div>';
+  renderHotspots();
+  fitStage();
+  snapTo(1);
+  setTimeout(()=>speak(cs.lines.f1, ()=>{
+    setAction("🩺 开始听诊（点击病床上发光的听诊点）", ()=>{ showToast("第一次点击听声音，第二次点击辨别声音"); }, "");
+  }),700);
+}
+
+/* ============ 案卷 / 静音 / 入口 ============ */
+document.getElementById("btn-dossier").onclick=()=>{
+  document.getElementById("ov-dossier").classList.add("show");
+};
+document.querySelectorAll("[data-close]").forEach(b=>{
+  b.onclick=()=>document.getElementById(b.dataset.close).classList.remove("show");
+});
+document.getElementById("ov-dossier").addEventListener("click",e=>{
+  if(e.target.id==="ov-dossier") e.target.classList.remove("show");
+});
+document.getElementById("btn-mute").onclick=function(){
+  S.muted=!S.muted;
+  this.textContent = S.muted?"🔇":"🔊";
+  if(auscAudio) auscAudio.muted=S.muted;
+};
+document.getElementById("hud-logo").onclick=openSelect;
+document.getElementById("btn-start").onclick=()=>{
+  beep(523,0.07,"square",0.06);
+  document.getElementById("ov-title").classList.remove("show");
+  openSelect();
+};
+
+/* init */
+const bgImg=document.getElementById("bg");
+bgImg.addEventListener("load",()=>{ STAGE_RATIO=bgImg.naturalWidth/bgImg.naturalHeight; fitStage(); });
+if(bgImg.complete && bgImg.naturalWidth) STAGE_RATIO=bgImg.naturalWidth/bgImg.naturalHeight;
+fitStage();
+updateHUD();
+</script>
+</body>
+</html>
