@@ -109,14 +109,18 @@
   .hs.playing .core{animation:steth .3s steps(2) infinite;}
   @keyframes steth{50%{transform:scale(1.25) rotate(-6deg);}}
 
-  /* ---------- dialogue bubble ---------- */
+  /* ---------- dialogue bubble ----------
+     修复：气泡只占右半（福尔摩斯书桌一侧），避免遮挡左侧病人胸部的听诊点；
+     超长文本限高滚动兜底。 */
   #bubble{
-    position:absolute;left:2.2%;right:2.2%;bottom:2.6%;z-index:10;
+    position:absolute;left:56%;right:2.2%;bottom:2.6%;z-index:10;
     background:var(--paper);
     border:2.5px solid var(--ink);
     box-shadow:5px 5px 0 rgba(0,0,0,.45);
     padding:10px 14px 12px;
     min-height:96px;
+    max-height:58%;
+    overflow-y:auto;
     display:none;
     cursor:pointer;
   }
